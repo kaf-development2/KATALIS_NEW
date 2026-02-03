@@ -78,9 +78,27 @@ export default function Sidebar() {
               >
                 Dashboard
               </Link>
-               
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Monitoring Project</a>
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Developer</a>
+              <Link 
+                href="/monitoring" 
+                className={`block p-2 text-sm rounded ${
+                  pathname === "/monitoring" 
+                    ? "bg-primary-50 text-primary-600 font-medium" 
+                    : "text-gray-700 hover:text-primary-600"
+                }`}
+              >
+                Monitoring Project
+              </Link>
+              <Link 
+                href="/developer" 
+                className={`block p-2 text-sm rounded ${
+                  pathname === "/developer" 
+                    ? "bg-primary-50 text-primary-600 font-medium" 
+                    : "text-gray-700 hover:text-primary-600"
+                }`}
+              >
+                Developer
+              </Link>
+              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Backlog Project</a>
             </div>
           )}
         </div>

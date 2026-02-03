@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 
 // Project Phase types
-type ProjectPhase = "BRD" | "FSD" | "DEV" | "SIT" | "UAT" | "Deploy";
+type ProjectPhase = "Ureq" | "Sys Design" | "Dev" | "UAT" | "Deploy";
 
 interface Project {
   id: string;
@@ -17,24 +17,7 @@ interface Project {
 }
 
 // Mock project data
-const projects: Project[] = [
-  { id: "1", name: "KAF CRM", phase: "BRD", status: "complete" },
-  { id: "2", name: "HR Recruitment Assistant", phase: "BRD", status: "complete" },
-  { id: "3", name: "Regulatory Document Alert (E-Filing Enhancement)", phase: "BRD", status: "complete" },
-  { id: "4", name: "LENDS", phase: "BRD", status: "complete" },
-  { id: "5", name: "Tableau to Power BI Migration", phase: "BRD", status: "complete" },
-  { id: "6", name: "PDCA Dashboard", phase: "BRD", status: "complete" },
-  { id: "7", name: "KAF Mobile Support Application (KMSA) Migration", phase: "FSD", status: "complete", daysInfo: "14 days overdue" },
-  { id: "8", name: "Budget Monitoring System", phase: "FSD", status: "complete", daysInfo: "15 days overdue" },
-  { id: "9", name: "Shafla Transactions API to UT", phase: "DEV", status: "complete", daysInfo: "15 days overdue" },
-  { id: "10", name: "PSGU to PSP Documentation", phase: "DEV", status: "complete", daysInfo: "39 days left" },
-  { id: "11", name: "Digitalization Payment Voucher", phase: "DEV", status: "complete", daysInfo: "14 days overdue" },
-  { id: "12", name: "Pembukuan USD to IDR", phase: "SIT", status: "complete", daysInfo: "34 days left" },
-  { id: "13", name: "SILARAS", phase: "SIT", status: "complete", daysInfo: "41 days left" },
-  { id: "14", name: "Bank Account Analysis by System", phase: "SIT", status: "complete", daysInfo: "4 days overdue" },
-  { id: "15", name: "Artificial Intelligence for Customer Document Reading (RAG)", phase: "Deploy", status: "complete", daysInfo: "1 days overdue" },
-  { id: "16", name: "Bank Analysis Migration to AI-Generated System", phase: "Deploy", status: "complete", daysInfo: "11 days left" },
-];
+const projects: Project[] = [];
 
 export default function ProjectManagementPage() {
   const router = useRouter();
@@ -53,10 +36,9 @@ export default function ProjectManagementPage() {
   };
 
   const phases: { name: string; key: ProjectPhase }[] = [
-    { name: "BRD", key: "BRD" },
-    { name: "FSD", key: "FSD" },
-    { name: "DEV", key: "DEV" },
-    { name: "SIT", key: "SIT" },
+    { name: "Ureq", key: "Ureq" },
+    { name: "Sys Design", key: "Sys Design" },
+    { name: "Dev", key: "Dev" },
     { name: "UAT", key: "UAT" },
     { name: "Deploy", key: "Deploy" },
   ];
