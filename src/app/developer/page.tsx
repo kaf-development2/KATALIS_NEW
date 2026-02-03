@@ -56,6 +56,37 @@ export default function DeveloperPage() {
 
   const developers = ["Egi", "Luthfi", "Mila", "Indah", "Alicia", "Ka Rey", "Zulfikar", "Mawar", "Fara", "Firhan"];
 
+  // Function to calculate project status automatically
+  const calculateProjectStatus = (phase: ProjectPhase, endDate?: string): { status: "complete" | "overdue" | "on-track"; daysInfo?: string } => {
+    // If project is in Deploy phase, it's complete
+    if (phase === "Deploy") {
+      return { status: "complete" };
+    }
+
+    // If no end date, default to on-track
+    if (!endDate) {
+      return { status: "on-track" };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+
+    // If today is after end date, project is overdue
+    if (today > end) {
+      const diffTime = Math.abs(today.getTime() - end.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return { 
+        status: "overdue", 
+        daysInfo: `${diffDays} day${diffDays > 1 ? 's' : ''}`
+      };
+    }
+
+    // Otherwise, project is on-track
+    return { status: "on-track" };
+  };
+
   // Load projects from localStorage on mount
   useEffect(() => {
     const savedProjects = localStorage.getItem("projects");
@@ -132,6 +163,9 @@ export default function DeveloperPage() {
     e.preventDefault();
     if (!selectedProject) return;
 
+    // Calculate status automatically based on current phase and end date
+    const { status, daysInfo } = calculateProjectStatus(selectedProject.phase, formData.endDate);
+
     const updatedProject: Project = {
       ...selectedProject,
       name: formData.projectName,
@@ -143,6 +177,8 @@ export default function DeveloperPage() {
       actualCost: formData.actualCost,
       budgetPlan: formData.budgetPlan,
       subTasks: formData.subTasks,
+      status: status,
+      daysInfo: daysInfo,
     };
 
     setProjects(prevProjects => 
@@ -159,12 +195,16 @@ export default function DeveloperPage() {
     console.log("Form submitted - Current projects:", projects);
     console.log("Form data:", formData);
     
+    // Calculate status automatically
+    const { status, daysInfo } = calculateProjectStatus("User Requirement", formData.endDate);
+    
     // Create new project
     const newProject: Project = {
       id: Date.now().toString(),
       name: formData.projectName,
       phase: "User Requirement",
-      status: "on-track",
+      status: status,
+      daysInfo: daysInfo,
       projectType: formData.projectType,
       projectOwner: formData.projectOwner,
       projectLevel: formData.projectLevel,
@@ -253,9 +293,12 @@ export default function DeveloperPage() {
     if (currentIndex < phaseOrder.length - 1) {
       const nextPhase = phaseOrder[currentIndex + 1];
       
+      // Calculate new status based on the new phase
+      const { status, daysInfo } = calculateProjectStatus(nextPhase, selectedProject.endDate);
+      
       setProjects(prevProjects =>
         prevProjects.map(project =>
-          project.id === selectedProject.id ? { ...project, phase: nextPhase } : project
+          project.id === selectedProject.id ? { ...project, phase: nextPhase, status, daysInfo } : project
         )
       );
       
@@ -434,21 +477,20 @@ export default function DeveloperPage() {
                               Complete
                             </div>
                           )}
+                          {project.status === "overdue" && (
+                            <div className="flex items-center gap-1 text-xs bg-red-600 text-white px-2 py-1 rounded w-fit">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              Overdue {project.daysInfo && `(${project.daysInfo})`}
+                            </div>
+                          )}
                           {project.status === "on-track" && (
                             <div className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2 py-1 rounded w-fit">
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                               </svg>
                               On Track
-                            </div>
-                          )}
-                          {project.daysInfo && (
-                            <div className={`text-xs mt-2 ${
-                              project.daysInfo.includes("overdue") 
-                                ? "text-red-400" 
-                                : "text-green-400"
-                            }`}>
-                              {project.daysInfo}
                             </div>
                           )}
                         </div>
@@ -833,56 +875,60 @@ export default function DeveloperPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Project Level <span className="text-red-500">*</span>
                   </label>
-                  <div className="bg-gray-900 rounded-lg p-4">
-                    <div className="grid grid-cols-3 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, projectLevel: "Easy" })}
-                        className={`p-4 rounded-lg border-2 transition ${
-                          formData.projectLevel === "Easy"
-                            ? "border-teal-500 bg-teal-500 bg-opacity-10"
-                            : "border-gray-600 bg-gray-800 hover:border-teal-500"
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-white font-bold text-lg mb-1">Easy</div>
-                          <div className="text-gray-400 text-xs">5 days/phase</div>
-                          <div className="text-gray-400 text-xs">30 days total</div>
-                        </div>
-                      </button>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, projectLevel: "Easy" })}
+                      className={`p-4 rounded-lg border-2 transition ${
+                        formData.projectLevel === "Easy"
+                          ? "border-teal-500 bg-teal-50"
+                          : "border-gray-300 bg-white hover:border-teal-500"
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className={`font-bold text-lg mb-1 ${
+                          formData.projectLevel === "Easy" ? "text-teal-700" : "text-gray-800"
+                        }`}>Easy</div>
+                        <div className="text-gray-600 text-xs">5 days/phase</div>
+                        <div className="text-gray-600 text-xs">30 days total</div>
+                      </div>
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, projectLevel: "Medium" })}
-                        className={`p-4 rounded-lg border-2 transition ${
-                          formData.projectLevel === "Medium"
-                            ? "border-blue-500 bg-blue-500 bg-opacity-10"
-                            : "border-gray-600 bg-gray-800 hover:border-blue-500"
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-white font-bold text-lg mb-1">Medium</div>
-                          <div className="text-gray-400 text-xs">10 days/phase</div>
-                          <div className="text-gray-400 text-xs">60 days total</div>
-                        </div>
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, projectLevel: "Medium" })}
+                      className={`p-4 rounded-lg border-2 transition ${
+                        formData.projectLevel === "Medium"
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 bg-white hover:border-blue-500"
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className={`font-bold text-lg mb-1 ${
+                          formData.projectLevel === "Medium" ? "text-blue-700" : "text-gray-800"
+                        }`}>Medium</div>
+                        <div className="text-gray-600 text-xs">10 days/phase</div>
+                        <div className="text-gray-600 text-xs">60 days total</div>
+                      </div>
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, projectLevel: "Hard" })}
-                        className={`p-4 rounded-lg border-2 transition ${
-                          formData.projectLevel === "Hard"
-                            ? "border-red-500 bg-red-500 bg-opacity-10"
-                            : "border-gray-600 bg-gray-800 hover:border-red-500"
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-white font-bold text-lg mb-1">Hard</div>
-                          <div className="text-gray-400 text-xs">15 days/phase</div>
-                          <div className="text-gray-400 text-xs">90 days total</div>
-                        </div>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, projectLevel: "Hard" })}
+                      className={`p-4 rounded-lg border-2 transition ${
+                        formData.projectLevel === "Hard"
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300 bg-white hover:border-red-500"
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className={`font-bold text-lg mb-1 ${
+                          formData.projectLevel === "Hard" ? "text-red-700" : "text-gray-800"
+                        }`}>Hard</div>
+                        <div className="text-gray-600 text-xs">15 days/phase</div>
+                        <div className="text-gray-600 text-xs">90 days total</div>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
