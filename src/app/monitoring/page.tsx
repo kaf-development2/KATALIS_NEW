@@ -25,6 +25,7 @@ export default function MonitoringPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedFilter, setSelectedFilter] = useState("All Projects");
 
+
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("isAuthenticated");
     if (!isAuthenticated) {
@@ -45,11 +46,35 @@ export default function MonitoringPage() {
 
   // Calculate statistics
   const totalProjects = projects.length;
-  const userRequirementCount = projects.filter(p => p.phase === "User Requirement").length;
-  const systemDesignCount = projects.filter(p => p.phase === "System Design").length;
-  const developmentCount = projects.filter(p => p.phase === "Development").length;
-  const uatCount = projects.filter(p => p.phase === "UAT").length;
   const deployCount = projects.filter(p => p.phase === "Deploy").length;
+
+  const getOwnerColor = (owner: string) => {
+    if (!owner) return "hsl(210 20% 60%)";
+    let hash = 0;
+    for (let i = 0; i < owner.length; i += 1) {
+      hash = (hash + owner.charCodeAt(i) * (i + 1)) % 2147483647;
+    }
+    const hue = hash % 360;
+    return `hsl(${hue} 72% 52%)`;
+  };
+
+  const buildPhaseDonut = (phase: string) => {
+    const phaseProjects = projects.filter(p => p.phase === phase);
+    const ownerTotals = phaseProjects.reduce<Record<string, number>>((acc, project) => {
+      const owner = project.projectOwner || "Unknown";
+      acc[owner] = (acc[owner] || 0) + 1;
+      return acc;
+    }, {});
+    const ownerEntries = Object.entries(ownerTotals).sort((a, b) => b[1] - a[1]);
+    const ownerTotalCount = ownerEntries.reduce((sum, [, count]) => sum + count, 0);
+    const segments = ownerEntries.map(([owner, count]) => ({
+      owner,
+      count,
+      color: getOwnerColor(owner),
+      percent: ownerTotalCount > 0 ? (count / ownerTotalCount) * 100 : 0,
+    }));
+    return { ownerTotalCount, segments };
+  };
 
   // Calculate project owners statistics
   const ownerStats: { [key: string]: number } = {};
@@ -102,34 +127,86 @@ export default function MonitoringPage() {
             <p className="text-gray-600 mt-1">Track and monitor all projects progress</p>
           </div>
 
-          {/* Total Project Card */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-            <h2 className="text-center text-lg font-bold text-gray-800 mb-3">Total Project</h2>
-            <div className="text-center text-4xl font-bold text-gray-900">{totalProjects}</div>
-          </div>
-
           {/* Phase Distribution */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-4 text-center border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">User Requirement</h3>
-              <div className="text-3xl font-bold text-gray-900">{userRequirementCount}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col items-center justify-center min-h-[240px]">
+              <h2 className="text-center text-lg font-bold text-gray-800 mb-3">Total Project</h2>
+              <div className="text-center text-4xl font-bold text-gray-900">{totalProjects}</div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 text-center border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">System Design</h3>
-              <div className="text-3xl font-bold text-gray-900">{systemDesignCount}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 text-center border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">Development</h3>
-              <div className="text-3xl font-bold text-gray-900">{developmentCount}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 text-center border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">UAT</h3>
-              <div className="text-3xl font-bold text-gray-900">{uatCount}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 text-center border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">Deployment</h3>
-              <div className="text-3xl font-bold text-gray-900">{deployCount}</div>
-            </div>
+            {["User Requirement", "System Design", "Development", "UAT", "Deploy"].map((phase) => {
+              const { ownerTotalCount, segments } = buildPhaseDonut(phase);
+              return (
+                <div key={phase} className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-gray-800">{phase}</h3>
+                    <span className="text-xs text-gray-500">By owner</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="relative w-36 h-36">
+                      <svg className="w-36 h-36" viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="70" fill="none" stroke="#E5E7EB" strokeWidth="22" />
+                        {segments.length === 1 && ownerTotalCount > 0 ? (
+                          <circle
+                            cx="100"
+                            cy="100"
+                            r="70"
+                            fill="none"
+                            stroke={segments[0].color}
+                            strokeWidth="22"
+                          />
+                        ) : (
+                          (() => {
+                            let startAngle = -90;
+                            return segments.map((segment) => {
+                              const angle = (segment.percent / 100) * 360;
+                              const endAngle = startAngle + angle;
+                              const largeArc = angle > 180 ? 1 : 0;
+                              const start = {
+                                x: 100 + 70 * Math.cos((Math.PI / 180) * startAngle),
+                                y: 100 + 70 * Math.sin((Math.PI / 180) * startAngle),
+                              };
+                              const end = {
+                                x: 100 + 70 * Math.cos((Math.PI / 180) * endAngle),
+                                y: 100 + 70 * Math.sin((Math.PI / 180) * endAngle),
+                              };
+                              const pathData = `M ${start.x} ${start.y} A 70 70 0 ${largeArc} 1 ${end.x} ${end.y}`;
+                              startAngle = endAngle;
+                              return (
+                                <path
+                                  key={`${phase}-${segment.owner}`}
+                                  d={pathData}
+                                  stroke={segment.color}
+                                  strokeWidth="22"
+                                  fill="none"
+                                  strokeLinecap="butt"
+                                />
+                              );
+                            });
+                          })()
+                        )}
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="text-base font-bold text-gray-900">Total {ownerTotalCount}</div>
+                        <div className="text-xs font-semibold text-gray-500">Projects</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 text-xs text-gray-600">
+                      {segments.length > 0 ? (
+                        segments.map((segment) => (
+                          <div key={`${phase}-${segment.owner}-legend`} className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }}></span>
+                            <span className="font-medium text-gray-700">{segment.owner}</span>
+                            <span className="text-gray-500">{segment.count}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-gray-500">No projects</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Project Owner and Overall Progress */}
