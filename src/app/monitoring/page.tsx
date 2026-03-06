@@ -47,41 +47,63 @@ export default function MonitoringPage() {
   // Calculate statistics
   const totalProjects = projects.length;
   const deployCount = projects.filter(p => p.phase === "Deploy").length;
+  const newProjectCount = projects.filter(p => p.phase === "User Requirement").length;
+  const crCount = totalProjects - newProjectCount;
 
-  const getOwnerColor = (owner: string) => {
-    if (!owner) return "hsl(210 20% 60%)";
-    let hash = 0;
-    for (let i = 0; i < owner.length; i += 1) {
-      hash = (hash + owner.charCodeAt(i) * (i + 1)) % 2147483647;
+  // Phase color mapping - different colors for New Project vs CR
+  const getPhaseColor = (phase: string, isNewProject: boolean) => {
+    if (isNewProject) {
+      // Project phase distribution colors (for New Project) - excluding SIT
+      const newProjectColorMap: Record<string, string> = {
+        "User Requirement": "#84CC16",  // green
+        "System Design": "#EAB308",     // yellow
+        "Development": "#3B82F6",       // blue
+      };
+      return newProjectColorMap[phase] || "#6B7280";
+    } else {
+      // CR Project phase distribution colors (for CR)
+      const crColorMap: Record<string, string> = {
+        "User Requirement": "#6366F1",  // indigo/blue
+        "System Design": "#A855F7",     // purple (Analysis)
+        "Development": "#EC4899",       // pink
+        "UAT": "#8B5CF6",               // purple
+        "Deploy": "#10B981",            // emerald/green
+      };
+      return crColorMap[phase] || "#6B7280";
     }
-    const hue = hash % 360;
-    return `hsl(${hue} 72% 52%)`;
   };
 
-  const buildPhaseDonut = (phase: string) => {
-    const phaseProjects = projects.filter(p => p.phase === phase);
-    const ownerTotals = phaseProjects.reduce<Record<string, number>>((acc, project) => {
-      const owner = project.projectOwner || "Unknown";
-      acc[owner] = (acc[owner] || 0) + 1;
-      return acc;
-    }, {});
-    const ownerEntries = Object.entries(ownerTotals).sort((a, b) => b[1] - a[1]);
-    const ownerTotalCount = ownerEntries.reduce((sum, [, count]) => sum + count, 0);
-    const segments = ownerEntries.map(([owner, count]) => ({
-      owner,
-      count,
-      color: getOwnerColor(owner),
-      percent: ownerTotalCount > 0 ? (count / ownerTotalCount) * 100 : 0,
-    }));
-    return { ownerTotalCount, segments };
-  };
+  // Get unique project owners
+  const projectOwners = Array.from(new Set(projects.map(p => p.projectOwner).filter(Boolean))) as string[];
 
-  // Calculate project owners statistics
-  const ownerStats: { [key: string]: number } = {};
-  projects.forEach(project => {
-    const owner = project.projectOwner || "Unknown";
-    ownerStats[owner] = (ownerStats[owner] || 0) + 1;
-  });
+  // Build phase distribution for each owner
+  const buildOwnerPhaseData = (owner: string, isNewProject: boolean) => {
+    const ownerProjects = projects.filter(p => {
+      const matchOwner = p.projectOwner === owner;
+      const matchType = isNewProject 
+        ? p.phase === "User Requirement"
+        : p.phase !== "User Requirement";
+      return matchOwner && matchType;
+    });
+
+    const phaseCount: Record<string, number> = {};
+    ownerProjects.forEach(p => {
+      phaseCount[p.phase] = (phaseCount[p.phase] || 0) + 1;
+    });
+
+    const total = ownerProjects.length;
+    const phases = Object.entries(phaseCount);
+    
+    return {
+      total,
+      phases: phases.map(([phase, count]) => ({
+        phase,
+        count,
+        percent: total > 0 ? (count / total) * 100 : 0,
+        color: getPhaseColor(phase, isNewProject),
+      }))
+    };
+  };
 
   // Calculate overall progress (mock data for now)
   const overallProgress = totalProjects > 0 ? Math.round((deployCount / totalProjects) * 100) : 0;
@@ -127,82 +149,152 @@ export default function MonitoringPage() {
             <p className="text-gray-600 mt-1">Track and monitor all projects progress</p>
           </div>
 
+          {/* Phase Legend */}
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 mb-4">
+            <div className="flex items-center justify-center gap-12">
+              {/* Project Phase Distribution (New Project) */}
+              <div className="flex flex-col gap-2">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Project Phase Distribution</div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#84CC16" }}></span>
+                    <span className="text-sm text-gray-700">User Requirement</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#EAB308" }}></span>
+                    <span className="text-sm text-gray-700">System Design</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#3B82F6" }}></span>
+                    <span className="text-sm text-gray-700">Development</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Divider */}
+              <div className="border-l border-gray-300 h-12"></div>
+              
+              {/* CR Project Phase Distribution */}
+              <div className="flex flex-col gap-2">
+                <div className="text-xs font-semibold text-gray-600 mb-1">CR Project Phase Distribution</div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#6366F1" }}></span>
+                    <span className="text-sm text-gray-700">User Requirement</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#A855F7" }}></span>
+                    <span className="text-sm text-gray-700">Analysis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#EC4899" }}></span>
+                    <span className="text-sm text-gray-700">Development</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10B981" }}></span>
+                    <span className="text-sm text-gray-700">Deploy</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Phase Distribution */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col items-center justify-center min-h-[240px]">
-              <h2 className="text-center text-lg font-bold text-gray-800 mb-3">Total Project</h2>
-              <div className="text-center text-4xl font-bold text-gray-900">{totalProjects}</div>
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col items-center justify-center">
+              <h2 className="text-center text-lg font-bold text-gray-800 mb-4">Total Project</h2>
+              <div className="text-center text-4xl font-bold text-gray-900 mb-6">{totalProjects}</div>
+              <div className="w-full flex justify-around gap-4 px-2">
+                <div className="flex flex-col items-center flex-1">
+                  <div className="text-2xl font-bold text-gray-900 mb-2">{newProjectCount}</div>
+                  <div className="text-xs font-medium text-gray-600">New Project</div>
+                </div>
+                <div className="border-l border-gray-300 h-12"></div>
+                <div className="flex flex-col items-center flex-1">
+                  <div className="text-2xl font-bold text-gray-900 mb-2">{crCount}</div>
+                  <div className="text-xs font-medium text-gray-600">CR</div>
+                </div>
+              </div>
             </div>
-            {["User Requirement", "System Design", "Development", "UAT", "Deploy"].map((phase) => {
-              const { ownerTotalCount, segments } = buildPhaseDonut(phase);
-              return (
-                <div key={phase} className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-bold text-gray-800">{phase}</h3>
-                    <span className="text-xs text-gray-500">By owner</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="relative w-36 h-36">
-                      <svg className="w-36 h-36" viewBox="0 0 200 200">
+            
+            {/* Project Owner Cards */}
+            {projectOwners.map((owner) => {
+              const newProjectData = buildOwnerPhaseData(owner, true);
+              const crData = buildOwnerPhaseData(owner, false);
+              
+              const renderDonut = (data: any, label: string) => {
+                const { total, phases } = data;
+                
+                return (
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-32 h-32">
+                      <svg className="w-32 h-32" viewBox="0 0 200 200">
                         <circle cx="100" cy="100" r="70" fill="none" stroke="#E5E7EB" strokeWidth="22" />
-                        {segments.length === 1 && ownerTotalCount > 0 ? (
-                          <circle
-                            cx="100"
-                            cy="100"
-                            r="70"
-                            fill="none"
-                            stroke={segments[0].color}
-                            strokeWidth="22"
-                          />
-                        ) : (
-                          (() => {
-                            let startAngle = -90;
-                            return segments.map((segment) => {
-                              const angle = (segment.percent / 100) * 360;
-                              const endAngle = startAngle + angle;
-                              const largeArc = angle > 180 ? 1 : 0;
-                              const start = {
-                                x: 100 + 70 * Math.cos((Math.PI / 180) * startAngle),
-                                y: 100 + 70 * Math.sin((Math.PI / 180) * startAngle),
-                              };
-                              const end = {
-                                x: 100 + 70 * Math.cos((Math.PI / 180) * endAngle),
-                                y: 100 + 70 * Math.sin((Math.PI / 180) * endAngle),
-                              };
-                              const pathData = `M ${start.x} ${start.y} A 70 70 0 ${largeArc} 1 ${end.x} ${end.y}`;
-                              startAngle = endAngle;
+                        {total > 0 && (() => {
+                          let startAngle = -90;
+                          return phases.map((phase: any, idx: number) => {
+                            const angle = (phase.percent / 100) * 360;
+                            const endAngle = startAngle + angle;
+                            const largeArc = angle > 180 ? 1 : 0;
+                            const start = {
+                              x: 100 + 70 * Math.cos((Math.PI / 180) * startAngle),
+                              y: 100 + 70 * Math.sin((Math.PI / 180) * startAngle),
+                            };
+                            const end = {
+                              x: 100 + 70 * Math.cos((Math.PI / 180) * endAngle),
+                              y: 100 + 70 * Math.sin((Math.PI / 180) * endAngle),
+                            };
+                            const pathData = angle === 360 
+                              ? "" 
+                              : `M ${start.x} ${start.y} A 70 70 0 ${largeArc} 1 ${end.x} ${end.y}`;
+                            
+                            startAngle = endAngle;
+                            
+                            if (angle === 360) {
                               return (
-                                <path
-                                  key={`${phase}-${segment.owner}`}
-                                  d={pathData}
-                                  stroke={segment.color}
-                                  strokeWidth="22"
+                                <circle
+                                  key={idx}
+                                  cx="100"
+                                  cy="100"
+                                  r="70"
                                   fill="none"
-                                  strokeLinecap="butt"
+                                  stroke={phase.color}
+                                  strokeWidth="22"
                                 />
                               );
-                            });
-                          })()
-                        )}
+                            }
+                            
+                            return (
+                              <path
+                                key={idx}
+                                d={pathData}
+                                stroke={phase.color}
+                                strokeWidth="22"
+                                fill="none"
+                                strokeLinecap="butt"
+                              />
+                            );
+                          });
+                        })()}
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className="text-base font-bold text-gray-900">Total {ownerTotalCount}</div>
-                        <div className="text-xs font-semibold text-gray-500">Projects</div>
+                        <div className="text-xl font-bold text-gray-900">{total}</div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 text-xs text-gray-600">
-                      {segments.length > 0 ? (
-                        segments.map((segment) => (
-                          <div key={`${phase}-${segment.owner}-legend`} className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }}></span>
-                            <span className="font-medium text-gray-700">{segment.owner}</span>
-                            <span className="text-gray-500">{segment.count}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-gray-500">No projects</div>
-                      )}
-                    </div>
+                    <div className="text-xs text-gray-600 mt-2 font-medium">{label}</div>
+                  </div>
+                );
+              };
+
+              return (
+                <div key={owner} className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-gray-800">{owner}</h3>
+                    <span className="text-xs text-gray-500">By Developer</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-6">
+                    {renderDonut(newProjectData, "New Project")}
+                    {renderDonut(crData, "CR")}
                   </div>
                 </div>
               );
@@ -210,34 +302,7 @@ export default function MonitoringPage() {
           </div>
 
           {/* Project Owner and Overall Progress */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Project Owner */}
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-6 bg-blue-600 rounded"></div>
-                Project Owner
-              </h2>
-              <div className="space-y-3">
-                {Object.entries(ownerStats).length > 0 ? (
-                  Object.entries(ownerStats).map(([owner, count]) => (
-                    <div key={owner} className="flex items-center gap-3">
-                      <div className="font-bold text-gray-800 w-16">{owner}</div>
-                      <div className="flex-1 bg-gray-200 rounded-full h-8 relative">
-                        <div 
-                          className="bg-orange-400 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                          style={{ width: `${Math.max((count / totalProjects) * 100, 10)}%` }}
-                        >
-                          {count}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-gray-500 text-sm">No projects with owners</div>
-                )}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
             {/* Overall Project Progress */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
@@ -302,7 +367,7 @@ export default function MonitoringPage() {
           </div>
 
           {/* Team Workload and Budget Analysis */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
             {/* Team Workload */}
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Team Workload</h2>
@@ -361,66 +426,6 @@ export default function MonitoringPage() {
                     })}
                   </tbody>
                 </table>
-              </div>
-            </div>
-
-            {/* Budget & Resource Analysis */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <div className="w-1 h-6 bg-blue-600 rounded"></div>
-                  Budget & Resource Analysis
-                </h2>
-              </div>
-
-              {/* Budget Overview */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-semibold text-gray-700">Budget Overview</h3>
-                  <div className="flex gap-2">
-                    <button className="text-blue-600 hover:text-blue-700 text-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <span className="text-sm text-gray-600">Edit</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Total Budget</div>
-                    <div className="text-xl font-bold text-gray-800">Rp 3.100.000.000</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Total Man-Days</div>
-                    <div className="text-xl font-bold text-gray-800">2840</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Man Power</div>
-                    <div className="text-xl font-bold text-gray-800">10 people</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Man-Day Cost</div>
-                    <div className="text-xl font-bold text-gray-800">Rp 1.174.242</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Calculated Metrics */}
-              <div>
-                <h3 className="text-base font-semibold text-gray-700 mb-4">Calculated Metrics</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Total Man-Days</div>
-                    <div className="text-xl font-bold text-gray-800">2840</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Man-Day Cost</div>
-                    <div className="text-xl font-bold text-gray-800">Rp 1.174.242</div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

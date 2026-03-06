@@ -51,15 +51,12 @@ export default function Sidebar() {
             className="w-full flex items-center justify-between p-3 text-gray-700 hover:bg-primary-50 rounded-lg group"
           >
             <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              <svg className="w-5 h-5 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="#142b6f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 16H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v1M9 12H4m8 8V9h8v11h-8Zm0 0H9m8-4a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/>
               </svg>
               {isOpen && <span className="font-medium">IT</span>}
             </div>
             {isOpen && (
-              // <svg className={`w-4 h-4 transition-transform ${openMenus.dashboard ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              //   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              // </svg>
               <svg className={`w-4 h-4 transition-transform ${openMenus.dashboard ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -98,7 +95,7 @@ export default function Sidebar() {
               >
                 Developer
               </Link>
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Backlog Project</a>
+              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Budget Project</a>
             </div>
           )}
         </div>
@@ -110,8 +107,8 @@ export default function Sidebar() {
             className="w-full flex items-center justify-between p-3 text-gray-700 hover:bg-primary-50 rounded-lg group"
           >
             <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              <svg className="w-5 h-5 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="#142b6f" strokeLinecap="round" strokeWidth="2" d="M4.5 17H4a1 1 0 0 1-1-1 3 3 0 0 1 3-3h1m0-3.05A2.5 2.5 0 1 1 9 5.5M19.5 17h.5a1 1 0 0 0 1-1 3 3 0 0 0-3-3h-1m0-3.05a2.5 2.5 0 1 0-2-4.45m.5 13.5h-7a1 1 0 0 1-1-1 3 3 0 0 1 3-3h3a3 3 0 0 1 3 3 1 1 0 0 1-1 1Zm-1-9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/>
               </svg>
               {isOpen && <span className="font-medium">CRM</span>}
             </div>
@@ -149,10 +146,10 @@ export default function Sidebar() {
             className="w-full flex items-center justify-between p-3 text-gray-700 hover:bg-primary-50 rounded-lg group"
           >
             <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              <svg className="w-5 h-5 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="#142b6f" strokeLinejoin="round" strokeWidth="2" d="M10 3v4a1 1 0 0 1-1 1H5m14-4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z"/>
               </svg>
-              {isOpen && <span className="font-medium">DMS</span>}
+            {isOpen && <span className="font-medium">DMS</span>}
             </div>
             {isOpen && (
               <svg className={`w-4 h-4 transition-transform ${openMenus.dms ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,45 +184,7 @@ export default function Sidebar() {
             </div>
           )}
         </div>
-
-        {/* Project Management */}
-        <div className="mb-2">
-          <button
-            onClick={() => toggleMenu("projectManagement")}
-            className="w-full flex items-center justify-between p-3 text-gray-700 hover:bg-primary-50 rounded-lg group"
-          >
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              {isOpen && <span className="font-medium">Project Management</span>}
-            </div>
-            {isOpen && (
-              <svg className={`w-4 h-4 transition-transform ${openMenus.projectManagement ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
-          </button>
-          
-          {isOpen && openMenus.projectManagement && (
-            <div className="ml-8 mt-1 space-y-1">
-              <Link 
-                href="/projectManagement" 
-                className={`block p-2 text-sm rounded ${
-                  pathname === "/projectManagement" 
-                    ? "bg-primary-50 text-primary-600" 
-                    : "text-gray-700 hover:text-primary-600"
-                }`}
-              >
-                Overview Project
-              </Link>
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Manage Project</a>
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Upload Data</a>
-              
-            </div>
-          )}
-        </div>
-
+        
         {/* Settings */}
         <div className="mb-2">
           <button
@@ -233,8 +192,9 @@ export default function Sidebar() {
             className="w-full flex items-center justify-between p-3 text-gray-700 hover:bg-primary-50 rounded-lg group"
           >
             <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              <svg className="w-5 h-5 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="#142b6f" strokeLinejoin="round" strokeWidth="2" d="m20.9532 11.7634-2.0523-2.05225-2.0523 2.05225 2.0523 2.0523 2.0523-2.0523Zm-1.3681-2.73651-4.1046-4.10457L12.06 8.3428l4.1046 4.1046 3.4205-3.42051Zm-4.1047 2.73651-2.7363-2.73638-8.20919 8.20918 2.73639 2.7364 8.2091-8.2092Z"/>
+                <path stroke="#142b6f" strokeLinejoin="round" strokeWidth="2" d="m12.9306 3.74083 1.8658 1.86571-2.0523 2.05229-1.5548-1.55476c-.995-.99505-3.23389-.49753-3.91799.18657l2.73639-2.73639c.6841-.68409 1.9901-.74628 2.9229.18658Z"/>
               </svg>
               {isOpen && <span className="font-medium">Settings</span>}
             </div>

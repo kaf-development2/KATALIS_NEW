@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 
 // Project Phase types
-type ProjectPhase = "User Requirement" | "System Design" | "Development" | "UAT" | "Deploy";
+type ProjectPhase = "User Requirement" | "Analysis" | "System Design" | "Development" | "SIT" | "UAT" | "Deploy";
 
 interface Project {
   id: string;
@@ -29,23 +29,58 @@ interface SubTask {
   name: string;
   assignee: string;
   isEditing: boolean;
-  status: "Deploy" | "Development" | "System Design" | "User Requirement" | "UAT";
+  status: "Deploy" | "Development" | "Analysis" | "System Design" | "User Requirement" | "SIT" | "UAT";
   duration: string;
   phaseStatus: "On Develop" | "Pending" | "Done";
   createdAt: string;
   doneAt?: string | null;
-  statusHistory?: { status: "Deploy" | "Development" | "System Design" | "User Requirement" | "UAT"; changedAt: string }[];
+  statusHistory?: { status: "Deploy" | "Development" | "Analysis" | "System Design" | "User Requirement" | "SIT" | "UAT"; changedAt: string }[];
+}
+
+interface BacklogItem {
+  id: string;
+  projectName: string;
+  description: string;
+  severity: "Easy" | "Medium" | "Hard";
+  status: "Open" | "Ongoing" | "Testing" | "Retest" | "Close";
+  projectOwner: string;
+  assignedTo: string;
+  startDate: string;
+  endDate: string;
+  attachments: string[];
+  createdAt: string;
 }
 
 export default function DeveloperPage() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("All Projects");
+  const [selectedTab, setSelectedTab] = useState<"project" | "cr" | "backlog">("project");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddingCRProject, setIsAddingCRProject] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailModalContext, setDetailModalContext] = useState<"phaseDistribution" | "listDetails">("phaseDistribution");
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isBacklogModalOpen, setIsBacklogModalOpen] = useState(false);
+  const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [backlogFormData, setBacklogFormData] = useState({
+    projectName: "",
+    description: "",
+    severity: "Medium" as "Easy" | "Medium" | "Hard",
+    status: "Open" as "Open" | "Ongoing" | "Testing" | "Retest" | "Close",
+    projectOwner: "",
+    assignedTo: "",
+    startDate: "",
+    endDate: "",
+    attachments: [] as string[],
+  });
+  const [backlogSearch, setBacklogSearch] = useState("");
+  const [isBacklogDetailModalOpen, setIsBacklogDetailModalOpen] = useState(false);
+  const [selectedBacklogItem, setSelectedBacklogItem] = useState<BacklogItem | null>(null);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState<string | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState<string | null>(null);
   const [showPhaseStatusDropdown, setShowPhaseStatusDropdown] = useState<string | null>(null);
@@ -62,6 +97,142 @@ export default function DeveloperPage() {
   });
 
   const developers = ["Egi", "Luthfi", "Mila", "Indah", "Alicia", "Ka Rey", "Zulfikar", "Mawar", "Fara", "Firhan"];
+  const projectOwners = ["BA", "CA", "CLCA", "CPPMO", "FATT", "HCGS", "IA", "IT", "MKT", "QA", "RM"];
+
+  // Get next backlog ID
+  const getNextBacklogId = () => {
+    const lastItem = backlogItems[backlogItems.length - 1];
+    if (!lastItem) return "BL - 001";
+    const lastNum = parseInt(lastItem.id.split(" - ")[1]);
+    return `BL - ${String(lastNum + 1).padStart(3, "0")}`;
+  };
+
+  const handleOpenBacklogModal = () => {
+    setBacklogFormData({
+      projectName: "",
+      description: "",
+      severity: "Medium",
+      status: "Open",
+      projectOwner: "",
+      assignedTo: "",
+      startDate: "",
+      endDate: "",
+      attachments: [],
+    });
+    setIsBacklogModalOpen(true);
+  };
+
+  const handleCloseBacklogModal = () => {
+    setIsBacklogModalOpen(false);
+    setBacklogFormData({
+      projectName: "",
+      description: "",
+      severity: "Medium",
+      status: "Open",
+      projectOwner: "",
+      assignedTo: "",
+      startDate: "",
+      endDate: "",
+      attachments: [],
+    });
+  };
+
+  const handleBacklogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newBacklogItem: BacklogItem = {
+      id: getNextBacklogId(),
+      projectName: backlogFormData.projectName,
+      description: backlogFormData.description,
+      severity: backlogFormData.severity,
+      status: backlogFormData.status,
+      projectOwner: backlogFormData.projectOwner,
+      assignedTo: backlogFormData.assignedTo,
+      startDate: backlogFormData.startDate,
+      endDate: backlogFormData.endDate,
+      attachments: backlogFormData.attachments,
+      createdAt: new Date().toISOString(),
+    };
+    setBacklogItems([...backlogItems, newBacklogItem]);
+    handleCloseBacklogModal();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newFiles = Array.from(files).map(file => file.name);
+      setBacklogFormData(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...newFiles]
+      }));
+    }
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (fileName: string) => {
+    setBacklogFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter(f => f !== fileName)
+    }));
+  };
+
+  const handleAddAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const calculateAgingDays = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return "-";
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return "-";
+    }
+
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    return `${diffDays} day${diffDays === 1 ? "" : "s"}`;
+  };
+
+  const calculateOverdueDays = (endDate: string) => {
+    if (!endDate) return "-";
+
+    const today = new Date();
+    const end = new Date(endDate);
+    today.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    if (Number.isNaN(end.getTime())) {
+      return "-";
+    }
+
+    if (today <= end) {
+      return "0 day";
+    }
+
+    const diffTime = today.getTime() - end.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return `${diffDays} day${diffDays === 1 ? "" : "s"}`;
+  };
+
+  const filteredBacklogItems = backlogItems.filter((item) => {
+    const keyword = backlogSearch.trim().toLowerCase();
+    if (!keyword) return true;
+
+    return (
+      item.id.toLowerCase().includes(keyword) ||
+      item.projectName.toLowerCase().includes(keyword) ||
+      item.description.toLowerCase().includes(keyword) ||
+      item.severity.toLowerCase().includes(keyword) ||
+      item.projectOwner.toLowerCase().includes(keyword) ||
+      item.assignedTo.toLowerCase().includes(keyword)
+    );
+  });
 
   // Function to calculate project status automatically
   const calculateProjectStatus = (phase: ProjectPhase, endDate?: string): { status: "complete" | "overdue" | "on-track"; daysInfo?: string } => {
@@ -124,6 +295,33 @@ export default function DeveloperPage() {
     };
   };
 
+  const standardPhaseOrder: ProjectPhase[] = ["User Requirement", "System Design", "Development", "SIT", "UAT", "Deploy"];
+  const crPhaseOrder: ProjectPhase[] = ["User Requirement", "Analysis", "Development", "Deploy"];
+
+  const normalizeCRPhase = (phase?: ProjectPhase): ProjectPhase => {
+    if (!phase) return "User Requirement";
+    if (phase === "System Design") return "Analysis";
+    if (phase === "SIT" || phase === "UAT") return "Development";
+    if (crPhaseOrder.includes(phase)) return phase;
+    return "User Requirement";
+  };
+
+  const normalizeCRSubTasks = (subTasks: SubTask[]): SubTask[] => {
+    return subTasks.map((task) => {
+      const normalizedStatus = normalizeCRPhase(task.status as ProjectPhase) as SubTask["status"];
+      const normalizedHistory = (task.statusHistory || []).map((entry) => ({
+        ...entry,
+        status: normalizeCRPhase(entry.status as ProjectPhase) as SubTask["status"],
+      }));
+
+      return {
+        ...task,
+        status: normalizedStatus,
+        statusHistory: normalizedHistory,
+      };
+    });
+  };
+
   // Load projects from localStorage on mount
   useEffect(() => {
     const savedProjects = localStorage.getItem("projects");
@@ -132,13 +330,17 @@ export default function DeveloperPage() {
         const parsedProjects = JSON.parse(savedProjects);
         // Fix old daysInfo format that may contain "overdue" word
         const fixedProjects = parsedProjects.map((project: Project) => {
+          const isCRProject = project.projectType === "CR";
           const normalizedSubTasks = normalizeSubTasks(project.subTasks || []);
+          const adjustedSubTasks = isCRProject ? normalizeCRSubTasks(normalizedSubTasks) : normalizedSubTasks;
+          const adjustedPhase = isCRProject ? normalizeCRPhase(project.phase) : project.phase;
+
           if (project.daysInfo && project.daysInfo.includes("overdue")) {
             // Remove "overdue" from daysInfo
             const fixedDaysInfo = project.daysInfo.replace(/\s*overdue\s*/gi, '').trim();
-            return { ...project, daysInfo: fixedDaysInfo, subTasks: normalizedSubTasks };
+            return { ...project, phase: adjustedPhase, daysInfo: fixedDaysInfo, subTasks: adjustedSubTasks };
           }
-          return { ...project, subTasks: normalizedSubTasks };
+          return { ...project, phase: adjustedPhase, subTasks: adjustedSubTasks };
         });
         setProjects(fixedProjects);
         console.log("Loaded projects from localStorage:", fixedProjects);
@@ -189,11 +391,40 @@ export default function DeveloperPage() {
   }, [isDetailModalOpen, detailModalContext, isEditMode]);
 
   const handleAddProject = () => {
+    setFormData({
+      projectName: "",
+      projectType: "New Project",
+      projectOwner: "",
+      startDate: "",
+      endDate: "",
+      projectLevel: "Medium",
+      actualCost: "",
+      budgetPlan: "",
+      subTasks: [],
+    });
+    setIsAddingCRProject(false);
+    setIsModalOpen(true);
+  };
+
+  const handleAddCRProject = () => {
+    setFormData({
+      projectName: "",
+      projectType: "CR",
+      projectOwner: "",
+      startDate: "",
+      endDate: "",
+      projectLevel: "Medium",
+      actualCost: "",
+      budgetPlan: "",
+      subTasks: [],
+    });
+    setIsAddingCRProject(true);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setIsAddingCRProject(false);
   };
 
   const handleOpenProjectDetail = (project: Project, context: "phaseDistribution" | "listDetails") => {
@@ -236,6 +467,37 @@ export default function DeveloperPage() {
     });
   };
 
+  const handleOpenDeleteModal = (project: Project, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setProjectToDelete(project);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setProjectToDelete(null);
+  };
+
+  const handleConfirmDeleteProject = () => {
+    if (!projectToDelete) return;
+
+    if (selectedProject?.id === projectToDelete.id) {
+      handleCloseDetailModal();
+    }
+
+    setProjects((prevProjects) => {
+      const updatedProjects = prevProjects.filter((project) => project.id !== projectToDelete.id);
+      if (updatedProjects.length > 0) {
+        localStorage.setItem("projects", JSON.stringify(updatedProjects));
+      } else {
+        localStorage.removeItem("projects");
+      }
+      return updatedProjects;
+    });
+
+    handleCloseDeleteModal();
+  };
+
   const handleUpdateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
@@ -275,6 +537,9 @@ export default function DeveloperPage() {
     // Calculate status automatically
     const { status, daysInfo } = calculateProjectStatus("User Requirement", formData.endDate);
 
+    // Determine project type based on which button was clicked
+    const projectType = isAddingCRProject ? "CR" : "New Project";
+
     // Create new project
     const newProject: Project = {
       id: Date.now().toString(),
@@ -282,7 +547,7 @@ export default function DeveloperPage() {
       phase: "User Requirement",
       status: status,
       daysInfo: daysInfo,
-      projectType: formData.projectType,
+      projectType: projectType,
       projectOwner: formData.projectOwner,
       projectLevel: formData.projectLevel,
       startDate: formData.startDate,
@@ -339,7 +604,7 @@ export default function DeveloperPage() {
     }));
   };
 
-  const handleChangeSubTaskStatus = (projectId: string, subTaskId: string, newStatus: "Deploy" | "Development" | "System Design" | "User Requirement" | "UAT", e: React.MouseEvent) => {
+  const handleChangeSubTaskStatus = (projectId: string, subTaskId: string, newStatus: SubTask["status"], e: React.MouseEvent) => {
     e.stopPropagation();
     
     // Update projects state
@@ -380,9 +645,12 @@ export default function DeveloperPage() {
 
   const handleMoveToNextPhase = () => {
     if (!selectedProject) return;
-    
-    const phaseOrder: ProjectPhase[] = ["User Requirement", "System Design", "Development", "UAT", "Deploy"];
-    const currentIndex = phaseOrder.indexOf(selectedProject.phase);
+
+    const phaseOrder = selectedProject.projectType === "CR" ? crPhaseOrder : standardPhaseOrder;
+    const currentPhase = selectedProject.projectType === "CR"
+      ? normalizeCRPhase(selectedProject.phase)
+      : selectedProject.phase;
+    const currentIndex = phaseOrder.indexOf(currentPhase);
     
     if (currentIndex < phaseOrder.length - 1) {
       const nextPhase = phaseOrder[currentIndex + 1];
@@ -541,7 +809,15 @@ export default function DeveloperPage() {
     { name: "User Requirement", key: "User Requirement" },
     { name: "System Design", key: "System Design" },
     { name: "Development", key: "Development" },
+    { name: "SIT", key: "SIT" },
     { name: "UAT", key: "UAT" },
+    { name: "Deploy", key: "Deploy" },
+  ];
+
+  const crPhases: { name: string; key: ProjectPhase }[] = [
+    { name: "User Requirement", key: "User Requirement" },
+    { name: "Analysis", key: "Analysis" },
+    { name: "Development", key: "Development" },
     { name: "Deploy", key: "Deploy" },
   ];
 
@@ -563,8 +839,83 @@ export default function DeveloperPage() {
             </div>
           </div>
 
-          {/* Project Phase Distribution */}
+          {/* Merged Section: Tabs + Project Phase Distribution + List Project Details */}
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            {/* Tabs Section */}
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                onClick={() => setSelectedTab("project")}
+                className={`px-6 py-3 font-medium transition relative ${
+                  selectedTab === "project"
+                    ? "text-blue-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>Project</span>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                    selectedTab === "project"
+                      ? "bg-blue-100 text-blue-600"
+                      : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {projects.filter(p => p.projectType !== "CR").length}
+                  </span>
+                </div>
+                {selectedTab === "project" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t"></div>
+                )}
+              </button>
+
+              <button
+                onClick={() => setSelectedTab("cr")}
+                className={`px-6 py-3 font-medium transition relative ${
+                  selectedTab === "cr"
+                    ? "text-blue-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>CR</span>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                    selectedTab === "cr"
+                      ? "bg-blue-100 text-blue-600"
+                      : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {projects.filter(p => p.projectType === "CR").length}
+                  </span>
+                </div>
+                {selectedTab === "cr" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t"></div>
+                )}
+              </button>
+
+              <button
+                onClick={() => setSelectedTab("backlog")}
+                className={`px-6 py-3 font-medium transition relative ${
+                  selectedTab === "backlog"
+                    ? "text-blue-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>Backlog</span>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                    selectedTab === "backlog"
+                      ? "bg-blue-100 text-blue-600"
+                      : "bg-gray-200 text-gray-600"
+                  }`}>
+                    0
+                  </span>
+                </div>
+                {selectedTab === "backlog" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t"></div>
+                )}
+              </button>
+            </div>
+
+            {/* Project Phase Distribution - Shown when Project tab is selected */}
+            {selectedTab === "project" && (
+            <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <div className="w-1 h-6 bg-blue-600 rounded"></div>
@@ -586,11 +937,12 @@ export default function DeveloperPage() {
               </div>*/}
             </div>
 
-            <div className="grid grid-cols-5 gap-2">
-              {phases.map((phase) => {
-                const phaseProjects = getProjectsByPhase(phase.key);
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-6 gap-3 min-w-max">
+                {phases.map((phase) => {
+                const phaseProjects = getProjectsByPhase(phase.key).filter(p => p.projectType !== "CR");
                 return (
-                  <div key={phase.key} className="bg-gray-100 rounded-lg p-4">
+                  <div key={phase.key} className="bg-gray-100 rounded-lg p-4 w-80">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-gray-700">{phase.name}</h3>
                     </div>
@@ -618,6 +970,16 @@ export default function DeveloperPage() {
                         >
                           <div className="flex items-start justify-between mb-2">
                             <h4 className="text-sm font-semibold flex-1">{project.name}</h4>
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenDeleteModal(project, e)}
+                              className="text-gray-400 hover:text-red-600 transition"
+                              aria-label={`Delete ${project.name}`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                              </svg>
+                            </button>
                           </div>
                           
                           {project.projectOwner && (
@@ -675,17 +1037,20 @@ export default function DeveloperPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
-          </div>
+            </div>
+            )}
 
-          {/* List Project Details Table */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-blue-600 rounded"></div>
-              List Project Details
-            </h2>
+            {/* List Project Details Table */}
+            {selectedTab === "project" && (
+            <div className="pt-6 border-t border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-6">
+                <div className="w-1 h-6 bg-blue-600 rounded"></div>
+                List Project Details
+              </h2>
 
-            <div className="overflow-x-auto">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
@@ -699,8 +1064,8 @@ export default function DeveloperPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {projects.length > 0 ? (
-                    projects.map((project) => {
+                  {projects.filter(p => p.projectType !== "CR").length > 0 ? (
+                    projects.filter(p => p.projectType !== "CR").map((project) => {
                       // Get unique assignees from subtasks
                       const assignees = project.subTasks
                         ? Array.from(new Set(project.subTasks
@@ -765,7 +1130,7 @@ export default function DeveloperPage() {
                                 ? "bg-yellow-100 text-yellow-700"
                                 : project.phase === "Development"
                                 ? "bg-orange-100 text-orange-700"
-                                : project.phase === "System Design"
+                                : project.phase === "System Design" || project.phase === "Analysis"
                                 ? "bg-purple-100 text-purple-700"
                                 : "bg-blue-100 text-blue-700"
                             }`}>
@@ -785,7 +1150,322 @@ export default function DeveloperPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
+            )}
+
+            {/* CR Project Phase Distribution - Shown when CR tab is selected */}
+            {selectedTab === "cr" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <div className="w-1 h-6 bg-blue-600 rounded"></div>
+                CR Project phase distribution
+              </h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-4 gap-3 min-w-max">
+                {crPhases.map((phase) => {
+                const phaseProjects = getProjectsByPhase(phase.key).filter(p => p.projectType === "CR");
+                return (
+                  <div key={phase.key} className="bg-gray-100 rounded-lg p-4 w-80">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-gray-700">{phase.name}</h3>
+                    </div>
+                    <div className="text-3xl font-bold text-gray-800 mb-1">{phaseProjects.length}</div>
+                    <div className="text-sm text-gray-500 mb-4">CR Projects</div>
+                    
+                    {phase.key === "User Requirement" && (
+                      <button 
+                        onClick={handleAddCRProject}
+                        className="w-full bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2 text-sm mb-4"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add CR Project
+                      </button>
+                    )}
+                    
+                    <div className="space-y-3 gap-1 max-h-[400px] overflow-y-auto pr-1">
+                      {phaseProjects.map((project) => (
+                        <div 
+                          key={project.id} 
+                          onClick={() => handleOpenProjectDetail(project, "phaseDistribution")}
+                          className="bg-white border border-gray-300 text-gray-800 rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-400 transition"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="text-sm font-semibold flex-1">{project.name}</h4>
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenDeleteModal(project, e)}
+                              className="text-gray-400 hover:text-red-600 transition"
+                              aria-label={`Delete ${project.name}`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          {project.projectOwner && (
+                            <div className="text-xs text-gray-600 mb-1">
+                              <span className="font-medium">Owner:</span> {project.projectOwner}
+                            </div>
+                          )}
+                          
+                          {project.projectType && (
+                            <div className="flex items-center gap-1 mb-2">
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                {project.projectType}
+                              </span>
+                              {project.projectLevel && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  project.projectLevel === "Easy" 
+                                    ? "bg-teal-100 text-teal-700"
+                                    : project.projectLevel === "Medium"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}>
+                                  {project.projectLevel}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          
+                          {project.status === "complete" && (
+                            <div className="flex items-center gap-1 text-xs bg-green-600 text-white px-2 py-1 rounded w-fit">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Complete
+                            </div>
+                          )}
+                          {project.status === "overdue" && (
+                            <div className="flex items-center gap-1 text-xs bg-red-600 text-white px-2 py-1 rounded w-fit">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              Overdue {project.daysInfo && `(${project.daysInfo})`}
+                            </div>
+                          )}
+                          {project.status === "on-track" && (
+                            <div className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2 py-1 rounded w-fit">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              On Track
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            </div>
+
+            <div className="pt-6 border-t border-gray-200 mt-6">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mb-6">
+                <div className="w-1 h-6 bg-blue-600 rounded"></div>
+                CR List project details
+              </h2>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Project Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Assignee</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Project Owner</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Project Level</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projects.filter((project) => project.projectType === "CR").length > 0 ? (
+                      projects
+                        .filter((project) => project.projectType === "CR")
+                        .map((project) => {
+                          const assignees = project.subTasks
+                            ? Array.from(new Set(project.subTasks
+                                .filter(task => task.assignee)
+                                .map(task => task.assignee)))
+                            : [];
+
+                          const calculateDuration = () => {
+                            if (!project.startDate || !project.endDate) return "Not set";
+                            const start = new Date(project.startDate);
+                            const end = new Date(project.endDate);
+                            const diffTime = Math.abs(end.getTime() - start.getTime());
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            return `${diffDays} days`;
+                          };
+
+                          return (
+                            <tr
+                              key={project.id}
+                              className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+                              onClick={() => handleOpenProjectDetail(project, "listDetails")}
+                            >
+                              <td className="py-3 px-4 text-sm text-gray-800 font-medium">{project.name}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                                  {project.projectType || "N/A"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600">
+                                {assignees.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {assignees.map((assignee, idx) => (
+                                      <span key={idx} className="inline-block px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                                        {assignee}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">No assignee</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600">{project.projectOwner || "N/A"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                  project.projectLevel === "Easy"
+                                    ? "bg-teal-100 text-teal-700"
+                                    : project.projectLevel === "Medium"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : project.projectLevel === "Hard"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}>
+                                  {project.projectLevel || "N/A"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                  project.phase === "Deploy"
+                                    ? "bg-green-100 text-green-700"
+                                    : project.phase === "UAT"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : project.phase === "Development"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : project.phase === "System Design" || project.phase === "Analysis"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {project.phase}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-600">{calculateDuration()}</td>
+                            </tr>
+                          );
+                        })
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-gray-500 text-sm">
+                          No CR projects available. Click "Add CR Project" to create one.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            </div>
+            )}
+
+            {/* Backlog Content - Shown when Backlog tab is selected */}
+            {selectedTab === "backlog" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-blue-600 rounded"></div>
+                  List Backlog Project
+                </h2>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search or type a command..."
+                      value={backlogSearch}
+                      onChange={(event) => setBacklogSearch(event.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white w-60"
+                    />
+                    <svg className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <button onClick={handleOpenBacklogModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 text-sm font-medium">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Backlog
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-gray-200">
+                
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px]">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">ID</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Project Name</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Description</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Severity</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Owner</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">PIC</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date Create</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Aging</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Overdue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBacklogItems.length > 0 ? (
+                        filteredBacklogItems.map((item) => (
+                          <tr 
+                            key={item.id} 
+                            className="border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer"
+                            onClick={() => {
+                              setSelectedBacklogItem(item);
+                              setIsBacklogDetailModalOpen(true);
+                            }}
+                          >
+                            <td className="py-3 px-4 text-sm text-gray-800 font-medium whitespace-nowrap">{item.id}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.projectName}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 max-w-[240px] truncate" title={item.description || "-"}>
+                              {item.description || "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.severity}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.projectOwner}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.assignedTo || "-"}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.startDate || "-"}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{calculateAgingDays(item.startDate, item.endDate)}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{calculateOverdueDays(item.endDate)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={9} className="py-10 text-center text-gray-500 text-sm">
+                            {backlogItems.length === 0
+                              ? 'No backlog data yet. Click "Add Backlog" to create one.'
+                              : "No backlog data matches your search."}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            )}
           </div>
 
           
@@ -797,7 +1477,7 @@ export default function DeveloperPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Add Project</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-6">{isAddingCRProject ? "Add CR Project" : "Add Project"}</h2>
               
               <form onSubmit={handleSubmit}>
                 {/* Project Name */}
@@ -821,29 +1501,8 @@ export default function DeveloperPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Project Type
                     </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="projectType"
-                          value="New Project"
-                          checked={formData.projectType === "New Project"}
-                          onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">New Project</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="projectType"
-                          value="CR"
-                          checked={formData.projectType === "CR"}
-                          onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">CR</span>
-                      </label>
+                    <div className="px-3 py-2 bg-gray-50 rounded-md text-gray-800 text-sm">
+                      {formData.projectType}
                     </div>
                   </div>
 
@@ -851,14 +1510,25 @@ export default function DeveloperPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Project Owner
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Enter first name"
+                    <select
                       value={formData.projectOwner}
                       onChange={(e) => setFormData({ ...formData, projectOwner: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
-                    />
+                    >
+                      <option value="">Select Project Owner</option>
+                      <option value="BA">BA</option>
+                      <option value="CA">CA</option>
+                      <option value="CLCA">CLCA</option>
+                      <option value="CPPMO">CPPMO</option>
+                      <option value="FATT">FATT</option>
+                      <option value="HCGS">HCGS</option>
+                      <option value="IA">IA</option>
+                      <option value="IT">IT</option>
+                      <option value="MKT">MKT</option>
+                      <option value="QA">QA</option>
+                      <option value="RM">RM</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1009,7 +1679,7 @@ export default function DeveloperPage() {
                                     </div>
                                   )}
                                 </div>
-                                
+
                                 <div className="flex-1"></div>
 
                                 {/* Cancel Button */}
@@ -1046,7 +1716,7 @@ export default function DeveloperPage() {
                                       ? "bg-yellow-100 text-yellow-700"
                                       : task.status === "Development"
                                       ? "bg-orange-100 text-orange-700"
-                                      : task.status === "System Design"
+                                      : task.status === "System Design" || task.status === "Analysis"
                                       ? "bg-purple-100 text-purple-700"
                                       : "bg-blue-100 text-blue-700"
                                   }`}>
@@ -1096,6 +1766,502 @@ export default function DeveloperPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && projectToDelete && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseDeleteModal}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-xl max-w-2xl w-full p-8 md:p-12 text-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-orange-50 flex items-center justify-center">
+              <svg className="w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+              </svg>
+            </div>
+
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">Warning Alert!</h3>
+            <p className="text-gray-600 text-lg mb-8">
+              Are you sure want to delete {projectToDelete.name}?
+            </p>
+
+            <div className="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={handleCloseDeleteModal}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteProject}
+                className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
+              >
+                Okay, Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Backlog Modal */}
+      {isBacklogModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Add Backlog Project</h2>
+              
+              <form onSubmit={handleBacklogSubmit}>
+                {/* Project Name */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Project Name
+                  </label>
+                  <select
+                    value={backlogFormData.projectName}
+                    onChange={(e) => {
+                      const selectedProjectName = e.target.value;
+                      const selectedProject = projects.find((project) => project.name === selectedProjectName);
+                      setBacklogFormData({
+                        ...backlogFormData,
+                        projectName: selectedProjectName,
+                        projectOwner: selectedProject?.projectOwner || "",
+                      });
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Project</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.name}>{project.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    placeholder="Enter project name"
+                    value={backlogFormData.description}
+                    onChange={(e) => setBacklogFormData({ ...backlogFormData, description: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                {/* ID Backlog and Project Owner */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ID Backlog
+                    </label>
+                    <div className="w-full h-10 px-4 bg-gray-100 rounded-lg text-gray-800 text-sm border border-gray-300 flex items-center">
+                      {getNextBacklogId()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Project Owner
+                    </label>
+                    <input
+                      type="text"
+                      value={backlogFormData.projectOwner}
+                      placeholder="Auto from selected project"
+                      className="w-full h-10 px-4 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                      disabled
+                    />
+                  </div>
+                </div>
+
+                {/* Start Date and End Date */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={backlogFormData.startDate}
+                      onChange={(e) => setBacklogFormData({ ...backlogFormData, startDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={backlogFormData.endDate}
+                      onChange={(e) => setBacklogFormData({ ...backlogFormData, endDate: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Severity and Status */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Severity
+                    </label>
+                    <select
+                      value={backlogFormData.severity}
+                      onChange={(e) => setBacklogFormData({ ...backlogFormData, severity: e.target.value as "Easy" | "Medium" | "Hard" })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      value={backlogFormData.status}
+                      onChange={(e) => setBacklogFormData({ ...backlogFormData, status: e.target.value as "Open" | "Ongoing" | "Testing" | "Retest" | "Close" })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="Open">Open</option>
+                      <option value="Ongoing">Ongoing</option>
+                      <option value="Testing">Testing</option>
+                      <option value="Retest">Retest</option>
+                      <option value="Close">Close</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Assign to and Attachment */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Assign to
+                    </label>
+                    <select
+                      value={backlogFormData.assignedTo}
+                      onChange={(e) => setBacklogFormData({ ...backlogFormData, assignedTo: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">--Select Developer--</option>
+                      {developers.map((dev) => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Attachment
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddAttachmentClick}
+                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm font-medium"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    />
+                  </div>
+                </div>
+
+                {/* Attachments List */}
+                {backlogFormData.attachments.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Uploaded Attachments ({backlogFormData.attachments.length})
+                    </label>
+                    <div className="space-y-2">
+                      {backlogFormData.attachments.map((fileName, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className="w-5 h-5 text-blue-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <span className="text-sm text-gray-800 truncate">{fileName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(fileName)}
+                            className="text-gray-400 hover:text-red-600 transition"
+                            title="Remove attachment"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2"
+                  >
+                    Submit
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseBacklogModal}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backlog Detail Modal */}
+      {isBacklogDetailModalOpen && selectedBacklogItem && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setIsBacklogDetailModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Backlog Detail</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBacklogDetailModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Row 1: Project Name and Description */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                  <input
+                    type="text"
+                    value={selectedBacklogItem.projectName}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={selectedBacklogItem.description}
+                    disabled
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: ID Backlog and Project Owner */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ID Backlog</label>
+                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
+                    {selectedBacklogItem.id}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Owner</label>
+                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
+                    {selectedBacklogItem.projectOwner}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Start Date and End Date */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                  <input
+                    type="date"
+                    value={selectedBacklogItem.startDate}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                  <input
+                    type="date"
+                    value={selectedBacklogItem.endDate}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Aging and Overdue */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Aging</label>
+                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
+                    {calculateAgingDays(selectedBacklogItem.startDate, selectedBacklogItem.endDate)} days
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Overdue</label>
+                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
+                    {calculateOverdueDays(selectedBacklogItem.endDate)} days
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Severity and Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Severity</label>
+                  <input
+                    type="text"
+                    value={selectedBacklogItem.severity}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <input
+                    type="text"
+                    value={selectedBacklogItem.status}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Assign To */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign To</label>
+                <input
+                  type="text"
+                  value={selectedBacklogItem.assignedTo || "--Select Developer--"}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                />
+              </div>
+
+              {/* Attachments Section */}
+              {selectedBacklogItem.attachments && selectedBacklogItem.attachments.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Attachments ({selectedBacklogItem.attachments.length})
+                  </label>
+                  <div className="space-y-2">
+                    {selectedBacklogItem.attachments.map((fileName, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                          <span className="text-sm text-gray-700">{fileName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="p-1 text-gray-500 hover:text-blue-600 transition"
+                            title="Download"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 text-gray-500 hover:text-red-600 transition"
+                            title="Delete"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBacklogDetailModalOpen(false)}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -1193,14 +2359,25 @@ export default function DeveloperPage() {
                       Project Owner
                     </label>
                     {isEditMode ? (
-                      <input
-                        type="text"
-                        placeholder="Enter first name"
+                      <select
                         value={formData.projectOwner}
                         onChange={(e) => setFormData({ ...formData, projectOwner: e.target.value })}
-                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         required
-                      />
+                      >
+                        <option value="">Select Project Owner</option>
+                        <option value="BA">BA</option>
+                        <option value="CA">CA</option>
+                        <option value="CLCA">CLCA</option>
+                        <option value="CPPMO">CPPMO</option>
+                        <option value="FATT">FATT</option>
+                        <option value="HCGS">HCGS</option>
+                        <option value="IA">IA</option>
+                        <option value="IT">IT</option>
+                        <option value="MKT">MKT</option>
+                        <option value="QA">QA</option>
+                        <option value="RM">RM</option>
+                      </select>
                     ) : (
                       <div className="px-3 py-2 bg-gray-50 rounded-md text-gray-800 text-sm">{formData.projectOwner}</div>
                     )}
@@ -1657,7 +2834,7 @@ export default function DeveloperPage() {
                                     ? "bg-yellow-100 text-yellow-700"
                                     : entry.status === "Development"
                                     ? "bg-orange-100 text-orange-700"
-                                    : entry.status === "System Design"
+                                    : entry.status === "System Design" || entry.status === "Analysis"
                                     ? "bg-purple-100 text-purple-700"
                                     : "bg-blue-100 text-blue-700"
                                 }`}>
