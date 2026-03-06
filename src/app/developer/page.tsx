@@ -15,6 +15,7 @@ interface Project {
   status: "complete" | "overdue" | "on-track";
   daysInfo?: string;
   projectType?: string;
+  projectId?: string;
   projectOwner?: string;
   projectLevel?: string;
   startDate?: string;
@@ -87,6 +88,7 @@ export default function DeveloperPage() {
   const [formData, setFormData] = useState({
     projectName: "",
     projectType: "New Project",
+    projectId: "",
     projectOwner: "",
     startDate: "",
     endDate: "",
@@ -105,6 +107,21 @@ export default function DeveloperPage() {
     if (!lastItem) return "BL - 001";
     const lastNum = parseInt(lastItem.id.split(" - ")[1]);
     return `BL - ${String(lastNum + 1).padStart(3, "0")}`;
+  };
+
+  // Get next project ID
+  const getNextProjectId = (projectType: string): string => {
+    const prefix = projectType === "CR" ? "CR" : "NP";
+    const filteredProjects = projects.filter((p) => p.projectId && p.projectId.startsWith(prefix));
+    
+    if (filteredProjects.length === 0) return `${prefix} - 0001`;
+    
+    // Get the last project's ID and increment the number
+    const lastProjectId = filteredProjects[filteredProjects.length - 1].projectId;
+    if (!lastProjectId) return `${prefix} - 0001`;
+    
+    const lastNum = parseInt(lastProjectId.split(" - ")[1]);
+    return `${prefix} - ${String(lastNum + 1).padStart(4, "0")}`;
   };
 
   const handleOpenBacklogModal = () => {
@@ -394,6 +411,7 @@ export default function DeveloperPage() {
     setFormData({
       projectName: "",
       projectType: "New Project",
+      projectId: "",
       projectOwner: "",
       startDate: "",
       endDate: "",
@@ -410,6 +428,7 @@ export default function DeveloperPage() {
     setFormData({
       projectName: "",
       projectType: "CR",
+      projectId: "",
       projectOwner: "",
       startDate: "",
       endDate: "",
@@ -425,6 +444,18 @@ export default function DeveloperPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsAddingCRProject(false);
+    setFormData({
+      projectName: "",
+      projectType: "New Project",
+      projectId: "",
+      projectOwner: "",
+      startDate: "",
+      endDate: "",
+      projectLevel: "Medium",
+      actualCost: "",
+      budgetPlan: "",
+      subTasks: [],
+    });
   };
 
   const handleOpenProjectDetail = (project: Project, context: "phaseDistribution" | "listDetails") => {
@@ -437,6 +468,7 @@ export default function DeveloperPage() {
     setFormData({
       projectName: normalizedProject.name,
       projectType: normalizedProject.projectType || "New Project",
+      projectId: normalizedProject.projectId || "",
       projectOwner: normalizedProject.projectOwner || "",
       startDate: normalizedProject.startDate || "",
       endDate: normalizedProject.endDate || "",
@@ -457,6 +489,7 @@ export default function DeveloperPage() {
     setFormData({
       projectName: "",
       projectType: "New Project",
+      projectId: "",
       projectOwner: "",
       startDate: "",
       endDate: "",
@@ -509,6 +542,7 @@ export default function DeveloperPage() {
       ...selectedProject,
       name: formData.projectName,
       projectType: formData.projectType,
+      projectId: formData.projectId,
       projectOwner: formData.projectOwner,
       startDate: formData.startDate,
       endDate: formData.endDate,
@@ -540,6 +574,9 @@ export default function DeveloperPage() {
     // Determine project type based on which button was clicked
     const projectType = isAddingCRProject ? "CR" : "New Project";
 
+    // Generate project ID
+    const projectId = getNextProjectId(projectType);
+
     // Create new project
     const newProject: Project = {
       id: Date.now().toString(),
@@ -548,6 +585,7 @@ export default function DeveloperPage() {
       status: status,
       daysInfo: daysInfo,
       projectType: projectType,
+      projectId: projectId,
       projectOwner: formData.projectOwner,
       projectLevel: formData.projectLevel,
       startDate: formData.startDate,
@@ -570,6 +608,7 @@ export default function DeveloperPage() {
     setFormData({
       projectName: "",
       projectType: "New Project",
+      projectId: "",
       projectOwner: "",
       startDate: "",
       endDate: "",
@@ -2318,6 +2357,18 @@ export default function DeveloperPage() {
                   )}
                 </div>
 
+                {/* Project ID */}
+                {!isEditMode && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Project ID
+                    </label>
+                    <div className="px-3 py-2 bg-gray-50 rounded-md text-gray-800 text-sm font-medium">
+                      {formData.projectId || "N/A"}
+                    </div>
+                  </div>
+                )}
+
                 {/* Project Type and Project Owner */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
@@ -2755,6 +2806,16 @@ export default function DeveloperPage() {
                 </label>
                 <div className="px-3 py-2 bg-gray-50 rounded-md text-gray-800 text-sm">
                   {formData.projectName}
+                </div>
+              </div>
+
+              {/* Project ID */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project ID
+                </label>
+                <div className="px-3 py-2 bg-gray-50 rounded-md text-gray-800 text-sm font-medium">
+                  {formData.projectId || "N/A"}
                 </div>
               </div>
 

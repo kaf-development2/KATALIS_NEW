@@ -95,7 +95,16 @@ export default function Sidebar() {
               >
                 Developer
               </Link>
-              <a href="#" className="block p-2 text-sm text-gray-700 hover:text-primary-600 rounded">Budget Project</a>
+              <Link 
+                href="/budgetProject" 
+                className={`block p-2 text-sm rounded ${
+                  pathname === "/budgetProject" 
+                    ? "bg-primary-50 text-primary-600 font-medium" 
+                    : "text-gray-700 hover:text-primary-600"
+                }`}
+              >
+                Budget Project
+              </Link>
             </div>
           )}
         </div>
