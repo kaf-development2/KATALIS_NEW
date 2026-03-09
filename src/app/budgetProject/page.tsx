@@ -37,9 +37,9 @@ interface ProjectWithBudget {
 export default function BudgetProjectPage() {
   const router = useRouter();
   const [budgetData, setBudgetData] = useState<BudgetData>({
-    totalBudget: "$120,369",
-    manPower: "$234,210",
-    projectDuration: "$120,369",
+    totalBudget: "3100000000",
+    manPower: "10",
+    projectDuration: "12",
     totalProjects: 0,
     budgetPerProject: "-",
     manDayCost: "-",
