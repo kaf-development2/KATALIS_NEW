@@ -48,8 +48,15 @@ interface BacklogItem {
   assignedTo: string;
   startDate: string;
   endDate: string;
-  attachments: string[];
+  attachments: BacklogAttachment[];
   createdAt: string;
+}
+
+interface BacklogAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  url: string;
 }
 
 export default function DeveloperPage() {
@@ -77,9 +84,10 @@ export default function DeveloperPage() {
     assignedTo: "",
     startDate: "",
     endDate: "",
-    attachments: [] as string[],
+    attachments: [] as BacklogAttachment[],
   });
   const [backlogSearch, setBacklogSearch] = useState("");
+  const [backlogProjectFilter, setBacklogProjectFilter] = useState("");
   const [isBacklogDetailModalOpen, setIsBacklogDetailModalOpen] = useState(false);
   const [selectedBacklogItem, setSelectedBacklogItem] = useState<BacklogItem | null>(null);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState<string | null>(null);
@@ -100,6 +108,7 @@ export default function DeveloperPage() {
 
   const developers = ["Egi", "Luthfi", "Mila", "Indah", "Alicia", "Ka Rey", "Zulfikar", "Mawar", "Fara", "Firhan"];
   const projectOwners = ["BA", "CA", "CLCA", "CPPMO", "FATT", "HCGS", "IA", "IT", "MKT", "QA", "RM"];
+  const backlogStatusOptions: BacklogItem["status"][] = ["Open", "Ongoing", "Testing", "Retest", "Close"];
 
   // Get next backlog ID
   const getNextBacklogId = () => {
@@ -176,7 +185,12 @@ export default function DeveloperPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newFiles = Array.from(files).map(file => file.name);
+      const newFiles = Array.from(files).map((file, index) => ({
+        id: `${file.name}-${Date.now()}-${index}`,
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        url: URL.createObjectURL(file),
+      }));
       setBacklogFormData(prev => ({
         ...prev,
         attachments: [...prev.attachments, ...newFiles]
@@ -188,11 +202,71 @@ export default function DeveloperPage() {
     }
   };
 
-  const handleRemoveAttachment = (fileName: string) => {
+  const handleRemoveAttachment = (attachmentId: string) => {
     setBacklogFormData(prev => ({
       ...prev,
-      attachments: prev.attachments.filter(f => f !== fileName)
+      attachments: prev.attachments.filter((attachment) => {
+        if (attachment.id === attachmentId) {
+          URL.revokeObjectURL(attachment.url);
+          return false;
+        }
+        return true;
+      })
     }));
+  };
+
+  const isImageAttachment = (mimeType: string, fileName: string) => {
+    if (mimeType.startsWith("image/")) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName);
+  };
+
+  const handleDownloadAttachment = (attachment: BacklogAttachment) => {
+    const anchor = document.createElement("a");
+    anchor.href = attachment.url;
+    anchor.download = attachment.name;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    anchor.click();
+  };
+
+  const handleDeleteBacklogAttachment = (backlogId: string, attachmentId: string) => {
+    setBacklogItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.id !== backlogId) return item;
+
+        const updatedAttachments = item.attachments.filter((attachment) => {
+          if (attachment.id === attachmentId) {
+            URL.revokeObjectURL(attachment.url);
+            return false;
+          }
+          return true;
+        });
+
+        return {
+          ...item,
+          attachments: updatedAttachments,
+        };
+      })
+    );
+
+    setSelectedBacklogItem((prev) => {
+      if (!prev || prev.id !== backlogId) return prev;
+      return {
+        ...prev,
+        attachments: prev.attachments.filter((attachment) => attachment.id !== attachmentId),
+      };
+    });
+  };
+
+  const handleBacklogStatusChange = (backlogId: string, newStatus: BacklogItem["status"]) => {
+    setBacklogItems((prevItems) =>
+      prevItems.map((item) => (item.id === backlogId ? { ...item, status: newStatus } : item))
+    );
+
+    setSelectedBacklogItem((prev) => {
+      if (!prev || prev.id !== backlogId) return prev;
+      return { ...prev, status: newStatus };
+    });
   };
 
   const handleAddAttachmentClick = () => {
@@ -238,6 +312,12 @@ export default function DeveloperPage() {
   };
 
   const filteredBacklogItems = backlogItems.filter((item) => {
+    // Filter by project if selected
+    if (backlogProjectFilter && item.projectName !== backlogProjectFilter) {
+      return false;
+    }
+
+    // Filter by search keyword
     const keyword = backlogSearch.trim().toLowerCase();
     if (!keyword) return true;
 
@@ -872,9 +952,6 @@ export default function DeveloperPage() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Project Board Management</h1>
-              <p className="text-gray-600 mt-1">
-                Welcome back, (Name of Developer) 👋 
-              </p>
             </div>
           </div>
 
@@ -943,7 +1020,7 @@ export default function DeveloperPage() {
                       ? "bg-blue-100 text-blue-600"
                       : "bg-gray-200 text-gray-600"
                   }`}>
-                    0
+                    {backlogItems.filter(item => item.status !== "Close").length}
                   </span>
                 </div>
                 {selectedTab === "backlog" && (
@@ -1007,8 +1084,8 @@ export default function DeveloperPage() {
                           onClick={() => handleOpenProjectDetail(project, "phaseDistribution")}
                           className="bg-white border border-gray-300 text-gray-800 rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-400 transition"
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="text-sm font-semibold flex-1">{project.name}</h4>
+                          <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
+                            <h4 className="text-sm font-semibold flex-1 min-w-0 break-words whitespace-normal leading-snug">{project.name}</h4>
                             <button
                               type="button"
                               onClick={(e) => handleOpenDeleteModal(project, e)}
@@ -1234,8 +1311,8 @@ export default function DeveloperPage() {
                           onClick={() => handleOpenProjectDetail(project, "phaseDistribution")}
                           className="bg-white border border-gray-300 text-gray-800 rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-400 transition"
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="text-sm font-semibold flex-1">{project.name}</h4>
+                          <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
+                            <h4 className="text-sm font-semibold flex-1 min-w-0 break-words whitespace-normal leading-snug">{project.name}</h4>
                             <button
                               type="button"
                               onClick={(e) => handleOpenDeleteModal(project, e)}
@@ -1427,6 +1504,16 @@ export default function DeveloperPage() {
                   List Backlog Project
                 </h2>
                 <div className="flex items-center gap-3">
+                  <select
+                    value={backlogProjectFilter}
+                    onChange={(e) => setBacklogProjectFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                  >
+                    <option value="">All Projects</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.name}>{project.name}</option>
+                    ))}
+                  </select>
                   <div className="relative">
                     <input
                       type="text"
@@ -1455,7 +1542,7 @@ export default function DeveloperPage() {
                   <table className="w-full min-w-[980px]">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">ID</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Project Name</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Description</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Severity</th>
@@ -1477,7 +1564,21 @@ export default function DeveloperPage() {
                               setIsBacklogDetailModalOpen(true);
                             }}
                           >
-                            <td className="py-3 px-4 text-sm text-gray-800 font-medium whitespace-nowrap">{item.id}</td>
+                            <td className="py-3 px-4 text-sm whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center rounded-md px-2.5 py-1 font-medium ${
+                                  item.status === "Open"
+                                    ? "bg-red-100 text-red-700"
+                                    : item.status === "Ongoing"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : item.status === "Testing" || item.status === "Retest"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {item.status}
+                              </span>
+                            </td>
                             <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">{item.projectName}</td>
                             <td className="py-3 px-4 text-sm text-gray-700 max-w-[240px] truncate" title={item.description || "-"}>
                               {item.description || "-"}
@@ -1891,7 +1992,7 @@ export default function DeveloperPage() {
                     Description
                   </label>
                   <textarea
-                    placeholder="Enter project name"
+                    placeholder="Enter task description"
                     value={backlogFormData.description}
                     onChange={(e) => setBacklogFormData({ ...backlogFormData, description: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -1978,11 +2079,9 @@ export default function DeveloperPage() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="Open">Open</option>
-                      <option value="Ongoing">Ongoing</option>
-                      <option value="Testing">Testing</option>
-                      <option value="Retest">Retest</option>
-                      <option value="Close">Close</option>
+                      {backlogStatusOptions.map((statusOption) => (
+                        <option key={statusOption} value={statusOption}>{statusOption}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -2009,16 +2108,20 @@ export default function DeveloperPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Attachment
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleAddAttachmentClick}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm font-medium"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add
-                    </button>
+                    <div className="flex items-center gap-0 bg-gray-100 rounded-lg overflow-hidden border border-gray-300">
+                      <button
+                        type="button"
+                        onClick={handleAddAttachmentClick}
+                        className="bg-blue-600 text-white px-6 py-2 hover:bg-blue-700 transition font-medium text-sm whitespace-nowrap"
+                      >
+                        Choose file
+                      </button>
+                      <span className="flex-1 text-gray-600 text-sm pl-4">
+                        {backlogFormData.attachments.length > 0
+                          ? `${backlogFormData.attachments.length} file${backlogFormData.attachments.length > 1 ? 's' : ''} chosen`
+                          : 'No file chosen'}
+                      </span>
+                    </div>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -2037,9 +2140,9 @@ export default function DeveloperPage() {
                       Uploaded Attachments ({backlogFormData.attachments.length})
                     </label>
                     <div className="space-y-2">
-                      {backlogFormData.attachments.map((fileName, index) => (
+                      {backlogFormData.attachments.map((attachment) => (
                         <div
-                          key={index}
+                          key={attachment.id}
                           className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3"
                         >
                           <div className="flex items-center gap-2">
@@ -2056,11 +2159,11 @@ export default function DeveloperPage() {
                                 d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                               />
                             </svg>
-                            <span className="text-sm text-gray-800 truncate">{fileName}</span>
+                            <span className="text-sm text-gray-800 truncate">{attachment.name}</span>
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleRemoveAttachment(fileName)}
+                            onClick={() => handleRemoveAttachment(attachment.id)}
                             className="text-gray-400 hover:text-red-600 transition"
                             title="Remove attachment"
                           >
@@ -2111,196 +2214,116 @@ export default function DeveloperPage() {
           onClick={() => setIsBacklogDetailModalOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-gray-100 rounded-[28px] shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">Backlog Detail</h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            <div className="px-8 py-8 md:px-10 md:py-9">
+              <div className="flex items-start justify-between gap-5 mb-5">
+                <h2 className="text-[30px] font-bold leading-tight text-gray-900">
+                  {(selectedBacklogItem.projectName || "(Project Name)")}
+                </h2>
+                <div className="text-[13px] font-regular text-gray-900 mt-1">{selectedBacklogItem.id}</div>
+                <span
+                  className={`inline-flex items-center rounded-lg px-4 py-1.5 text-sm font-semibold whitespace-nowrap ${
+                    selectedBacklogItem.severity === "Easy"
+                      ? "bg-teal-100 text-teal-700"
+                      : selectedBacklogItem.severity === "Hard"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}
                 >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsBacklogDetailModalOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  {selectedBacklogItem.severity}
+                </span>
               </div>
-            </div>
+              <div className="text-[15px] font-medium text-gray-900 mb-1">Task Description</div>
+              <p className="text-[13px] font-regular text-gray-700 break-words min-h-[24px]">
+                {selectedBacklogItem.description || "-"}
+              </p>
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              {/* Row 1: Project Name and Description */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-10 mt-4 max-w-md">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-                  <input
-                    type="text"
-                    value={selectedBacklogItem.projectName}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
+                  <div className="text-[13px] font-regular text-gray-900">Start Date</div>
+                  <div className="text-[13px] font-regular text-gray-900 mt-1">{selectedBacklogItem.startDate || "-"}</div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    value={selectedBacklogItem.description}
-                    disabled
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed resize-none"
-                  />
+                  <div className="text-[13px] font-regular text-gray-900">End Date</div>
+                  <div className="text-[13px] font-regular text-gray-900 mt-1">{selectedBacklogItem.endDate || "-"}</div>
+                </div>
+                <div>
+                  <div className="text-[13px] font-regular text-gray-900">Overdue</div>
+                  <div className="text-[13px] font-regular text-gray-900 mt-1">{calculateOverdueDays(selectedBacklogItem.endDate)}</div>
                 </div>
               </div>
 
-              {/* Row 2: ID Backlog and Project Owner */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ID Backlog</label>
-                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
-                    {selectedBacklogItem.id}
-                  </div>
+              <div className="mt-8">
+                <div className="text-sm font-semibold text-slate-600 mb-3">
+                  Attachments ({selectedBacklogItem.attachments.length})
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Owner</label>
-                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
-                    {selectedBacklogItem.projectOwner}
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 3: Start Date and End Date */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                  <input
-                    type="date"
-                    value={selectedBacklogItem.startDate}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                  <input
-                    type="date"
-                    value={selectedBacklogItem.endDate}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Aging and Overdue */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Aging</label>
-                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
-                    {calculateAgingDays(selectedBacklogItem.startDate, selectedBacklogItem.endDate)} days
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Overdue</label>
-                  <div className="h-10 px-4 bg-gray-100 border border-gray-300 rounded-lg flex items-center text-gray-700">
-                    {calculateOverdueDays(selectedBacklogItem.endDate)} days
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 5: Severity and Status */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Severity</label>
-                  <input
-                    type="text"
-                    value={selectedBacklogItem.severity}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <input
-                    type="text"
-                    value={selectedBacklogItem.status}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {/* Assign To */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign To</label>
-                <input
-                  type="text"
-                  value={selectedBacklogItem.assignedTo || "--Select Developer--"}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                />
-              </div>
-
-              {/* Attachments Section */}
-              {selectedBacklogItem.attachments && selectedBacklogItem.attachments.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Attachments ({selectedBacklogItem.attachments.length})
-                  </label>
+                {selectedBacklogItem.attachments.length > 0 ? (
                   <div className="space-y-2">
-                    {selectedBacklogItem.attachments.map((fileName, index) => (
+                    {selectedBacklogItem.attachments.map((attachment) => (
                       <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3"
+                        key={attachment.id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
                       >
-                        <div className="flex items-center gap-2">
-                          <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.172 7.707 8.879a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
-                          <span className="text-sm text-gray-700">{fileName}</span>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-700 truncate">{attachment.name}</p>
+                            {isImageAttachment(attachment.mimeType, attachment.name) && (
+                              <button
+                                type="button"
+                                onClick={() => window.open(attachment.url, "_blank", "noopener,noreferrer")}
+                                className="text-xs text-blue-600 hover:text-blue-700"
+                              >
+                                View image
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            className="p-1 text-gray-500 hover:text-blue-600 transition"
+                            onClick={() => handleDownloadAttachment(attachment)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 transition"
                             title="Download"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className="p-1 text-gray-500 hover:text-red-600 transition"
-                            title="Delete"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-5l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-gray-300 px-3 py-5 text-sm text-gray-500 bg-white/50">
+                    No attachments.
+                  </div>
+                )}
+              </div>
 
-            {/* Modal Footer */}
-            <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
+              <div className="pt-8 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsBacklogDetailModalOpen(false)}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                className="px-7 py-3 border border-slate-300 text-slate-600 rounded-xl hover:bg-white transition font-semibold"
               >
                 Close
               </button>
+                <select
+                  value={selectedBacklogItem.status}
+                  onChange={(e) => handleBacklogStatusChange(selectedBacklogItem.id, e.target.value as BacklogItem["status"])}
+                  className="px-4 py-3 border border-blue-200 bg-blue-50 text-blue-700 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Backlog status"
+                >
+                  {backlogStatusOptions.map((statusOption) => (
+                    <option key={statusOption} value={statusOption}>{statusOption}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
