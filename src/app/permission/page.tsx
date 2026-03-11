@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import { sidebarMenuSections } from "@/config/sidebarMenu";
 
 type AccordionItem = {
   id: string;
@@ -15,6 +16,53 @@ type AccordionItem = {
     onAddUser: () => void;
     onEdit?: (user: User) => void;
   }) => React.ReactNode;
+};
+
+type PermissionFlags = {
+  create: boolean;
+  read: boolean;
+  update: boolean;
+  delete: boolean;
+};
+
+type ContentPermissionItem = {
+  id: string;
+  label: string;
+};
+
+const emptyPermissionFlags = (): PermissionFlags => ({
+  create: false,
+  read: false,
+  update: false,
+  delete: false,
+});
+
+const hasAnyPermission = (permission?: PermissionFlags) =>
+  Boolean(permission && (permission.create || permission.read || permission.update || permission.delete));
+
+const formatContentPermissionLabel = (key: string) => {
+  const labelMap: Record<string, string> = {
+    dashboard: "Dashboard",
+    report: "Report",
+    application: "Application",
+    "total-project": "Total Project",
+    "overall-project-progress": "Overall Project Progress",
+    "team-workload": "Team Workload",
+    "project-distribution": "Project Distribution",
+  };
+
+  if (labelMap[key]) {
+    return labelMap[key];
+  }
+
+  if (key.startsWith("distribution-")) {
+    return key.replace("distribution-", "").toUpperCase();
+  }
+
+  return key
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 };
 
 type TabData = {
@@ -149,39 +197,32 @@ const tabsData: TabData[] = [
                             <span className="text-sm font-medium text-gray-900">{user.name}</span>
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {user.contentPermissions?.dashboard && 
-                             (user.contentPermissions.dashboard.create || 
-                              user.contentPermissions.dashboard.read || 
-                              user.contentPermissions.dashboard.update || 
-                              user.contentPermissions.dashboard.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Dashboard
-                              </span>
-                            )}
-                            {user.contentPermissions?.report && 
-                             (user.contentPermissions.report.create || 
-                              user.contentPermissions.report.read || 
-                              user.contentPermissions.report.update || 
-                              user.contentPermissions.report.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                Report
-                              </span>
-                            )}
-                            {user.contentPermissions?.application && 
-                             (user.contentPermissions.application.create || 
-                              user.contentPermissions.application.read || 
-                              user.contentPermissions.application.update || 
-                              user.contentPermissions.application.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Application
-                              </span>
-                            )}
-                            {(!user.contentPermissions || 
-                              (!user.contentPermissions.dashboard?.create && !user.contentPermissions.dashboard?.read && !user.contentPermissions.dashboard?.update && !user.contentPermissions.dashboard?.delete &&
-                               !user.contentPermissions.report?.create && !user.contentPermissions.report?.read && !user.contentPermissions.report?.update && !user.contentPermissions.report?.delete &&
-                               !user.contentPermissions.application?.create && !user.contentPermissions.application?.read && !user.contentPermissions.application?.update && !user.contentPermissions.application?.delete)) && (
-                              <span className="text-xs text-gray-500 italic">No content assigned</span>
-                            )}
+                            {(() => {
+                              const appliedContents = Object.entries(user.contentPermissions || {})
+                                .filter(([, permission]) => hasAnyPermission(permission as PermissionFlags))
+                                .map(([key]) => key);
+
+                              if (appliedContents.length === 0) {
+                                return <span className="text-xs text-gray-500 italic">No content assigned</span>;
+                              }
+
+                              const colorClasses = [
+                                "bg-blue-100 text-blue-800",
+                                "bg-purple-100 text-purple-800",
+                                "bg-green-100 text-green-800",
+                                "bg-amber-100 text-amber-800",
+                                "bg-pink-100 text-pink-800",
+                              ];
+
+                              return appliedContents.map((key, index) => (
+                                <span
+                                  key={key}
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClasses[index % colorClasses.length]}`}
+                                >
+                                  {formatContentPermissionLabel(key)}
+                                </span>
+                              ));
+                            })()}
                           </div>
                           <div className="flex items-center justify-end gap-3">
                             <button 
@@ -264,39 +305,32 @@ const tabsData: TabData[] = [
                             <span className="text-sm font-medium text-gray-900">{user.name}</span>
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {user.contentPermissions?.dashboard && 
-                             (user.contentPermissions.dashboard.create || 
-                              user.contentPermissions.dashboard.read || 
-                              user.contentPermissions.dashboard.update || 
-                              user.contentPermissions.dashboard.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Dashboard
-                              </span>
-                            )}
-                            {user.contentPermissions?.report && 
-                             (user.contentPermissions.report.create || 
-                              user.contentPermissions.report.read || 
-                              user.contentPermissions.report.update || 
-                              user.contentPermissions.report.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                Report
-                              </span>
-                            )}
-                            {user.contentPermissions?.application && 
-                             (user.contentPermissions.application.create || 
-                              user.contentPermissions.application.read || 
-                              user.contentPermissions.application.update || 
-                              user.contentPermissions.application.delete) && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Application
-                              </span>
-                            )}
-                            {(!user.contentPermissions || 
-                              (!user.contentPermissions.dashboard?.create && !user.contentPermissions.dashboard?.read && !user.contentPermissions.dashboard?.update && !user.contentPermissions.dashboard?.delete &&
-                               !user.contentPermissions.report?.create && !user.contentPermissions.report?.read && !user.contentPermissions.report?.update && !user.contentPermissions.report?.delete &&
-                               !user.contentPermissions.application?.create && !user.contentPermissions.application?.read && !user.contentPermissions.application?.update && !user.contentPermissions.application?.delete)) && (
-                              <span className="text-xs text-gray-500 italic">No content assigned</span>
-                            )}
+                            {(() => {
+                              const appliedContents = Object.entries(user.contentPermissions || {})
+                                .filter(([, permission]) => hasAnyPermission(permission as PermissionFlags))
+                                .map(([key]) => key);
+
+                              if (appliedContents.length === 0) {
+                                return <span className="text-xs text-gray-500 italic">No content assigned</span>;
+                              }
+
+                              const colorClasses = [
+                                "bg-blue-100 text-blue-800",
+                                "bg-purple-100 text-purple-800",
+                                "bg-green-100 text-green-800",
+                                "bg-amber-100 text-amber-800",
+                                "bg-pink-100 text-pink-800",
+                              ];
+
+                              return appliedContents.map((key, index) => (
+                                <span
+                                  key={key}
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClasses[index % colorClasses.length]}`}
+                                >
+                                  {formatContentPermissionLabel(key)}
+                                </span>
+                              ));
+                            })()}
                           </div>
                           <div className="flex items-center justify-end gap-3">
                             <button 
@@ -493,7 +527,7 @@ type User = {
 
 export default function PermissionPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("crm-dashboard");
+  const [activeTab, setActiveTab] = useState("crm-page-permissions");
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({
     crm: true,
   });
@@ -510,18 +544,12 @@ export default function PermissionPage() {
     update: false,
     delete: false,
   });
-  const [tempContentPermissions, setTempContentPermissions] = useState<{
-    [key: string]: {
-      create: boolean;
-      read: boolean;
-      update: boolean;
-      delete: boolean;
-    };
-  }>({
+  const [tempContentPermissions, setTempContentPermissions] = useState<Record<string, PermissionFlags>>({
     dashboard: { create: false, read: false, update: false, delete: false },
     report: { create: false, read: false, update: false, delete: false },
     application: { create: false, read: false, update: false, delete: false },
   });
+  const [monitoringOwners, setMonitoringOwners] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [activeCrmTab, setActiveCrmTab] = useState<'page' | 'subpage'>('page');
   const [users, setUsers] = useState<User[]>([
@@ -579,6 +607,23 @@ export default function PermissionPage() {
     if (!isAuthenticated) {
       router.push("/login");
     }
+
+    const savedProjects = localStorage.getItem("projects");
+    if (savedProjects) {
+      try {
+        const parsedProjects = JSON.parse(savedProjects) as Array<{ projectOwner?: string }>;
+        const owners = Array.from(
+          new Set(
+            parsedProjects
+              .map((project) => project.projectOwner?.trim())
+              .filter((owner): owner is string => Boolean(owner))
+          )
+        );
+        setMonitoringOwners(owners);
+      } catch {
+        setMonitoringOwners([]);
+      }
+    }
   }, [router]);
 
   const toggleAccordion = (id: string) => {
@@ -623,11 +668,12 @@ export default function PermissionPage() {
   const handleOpenEditPermissions = (user: User) => {
     setSelectedUserForEdit(user);
     setTempPermissions(user.permissions || { create: false, read: false, update: false, delete: false });
-    setTempContentPermissions(user.contentPermissions || {
-      dashboard: { create: false, read: false, update: false, delete: false },
-      report: { create: false, read: false, update: false, delete: false },
-      application: { create: false, read: false, update: false, delete: false },
-    });
+    const existingContentPermissions = user.contentPermissions || {};
+    const generatedContentPermissions = contentPermissionItems.reduce<Record<string, PermissionFlags>>((acc, item) => {
+      acc[item.id] = existingContentPermissions[item.id] || emptyPermissionFlags();
+      return acc;
+    }, {});
+    setTempContentPermissions(generatedContentPermissions);
     setIsEditPermissionsModalOpen(true);
   };
 
@@ -650,21 +696,146 @@ export default function PermissionPage() {
     }));
   };
 
-  // Find current tab - check both main tabs and sub-tabs
-  let currentTab: TabData | undefined;
-  for (const tab of tabsData) {
-    if (tab.id === activeTab) {
-      currentTab = tab;
-      break;
+  const crmTab = tabsData.find((tab) => tab.id === "crm");
+  const crmPagePermissionsTab = crmTab?.subTabs?.find((subTab) => subTab.id === "crm-page-permissions");
+  const crmSubPagePermissionsTab = crmTab?.subTabs?.find((subTab) => subTab.id === "crm-subpage-permissions");
+  const standaloneTabs = tabsData.filter((tab) => !tab.subTabs);
+
+  const getGeneratedPermissionLabel = (tabId: string) => {
+    if (tabId.endsWith("-page-permissions")) {
+      return "Page Permissions";
     }
-    if (tab.subTabs) {
-      const subTab = tab.subTabs.find((st) => st.id === activeTab);
-      if (subTab) {
-        currentTab = subTab;
+
+    for (const section of sidebarMenuSections) {
+      for (const item of section.items) {
+        if (tabId === `${section.id}:${item.id}` || tabId === item.id) {
+          return item.label;
+        }
+      }
+    }
+
+    return undefined;
+  };
+
+  const getGeneratedCurrentTab = (tabId: string) => {
+    if (tabId.endsWith("-page-permissions")) {
+      return crmPagePermissionsTab;
+    }
+
+    if (tabId.includes(":")) {
+      return crmSubPagePermissionsTab;
+    }
+
+    return standaloneTabs.find((tab) => tab.id === tabId);
+  };
+
+  // Find current tab - check both main tabs and sub-tabs
+  let currentTab: TabData | undefined = getGeneratedCurrentTab(activeTab);
+  if (!currentTab) {
+    for (const tab of tabsData) {
+      if (tab.id === activeTab) {
+        currentTab = tab;
         break;
+      }
+      if (tab.subTabs) {
+        const subTab = tab.subTabs.find((st) => st.id === activeTab);
+        if (subTab) {
+          currentTab = subTab;
+          break;
+        }
       }
     }
   }
+
+  const currentTabLabel = getGeneratedPermissionLabel(activeTab) || currentTab?.label || "Permissions";
+  const getSidebarItemByGeneratedTab = (tabId: string) => {
+    if (!tabId.includes(":")) {
+      return undefined;
+    }
+
+    const [sectionId, itemId] = tabId.split(":");
+    const section = sidebarMenuSections.find((menuSection) => menuSection.id === sectionId);
+    if (!section) {
+      return undefined;
+    }
+
+    const item = section.items.find((menuItem) => menuItem.id === itemId);
+    if (!item) {
+      return undefined;
+    }
+
+    return { section, item };
+  };
+
+  const selectedSidebarItem = getSidebarItemByGeneratedTab(activeTab);
+  const contentPermissionItems: ContentPermissionItem[] = (() => {
+    if (!selectedSidebarItem) {
+      return [
+        { id: "dashboard", label: "Dashboard" },
+        { id: "report", label: "Report" },
+        { id: "application", label: "Application" },
+      ];
+    }
+
+    if (activeTab === "it:monitoring") {
+      const ownerItems = monitoringOwners.map((owner) => ({
+        id: `distribution-${owner.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        label: owner,
+      }));
+
+      return [
+        { id: "total-project", label: "Total Project" },
+        { id: "overall-project-progress", label: "Overall Project Progress" },
+        { id: "team-workload", label: "Team Workload" },
+        ...(ownerItems.length > 0 ? ownerItems : [{ id: "project-distribution", label: "Project Distribution" }]),
+      ];
+    }
+
+    return [
+      {
+        id: `${selectedSidebarItem.item.id}-content`,
+        label: selectedSidebarItem.item.label,
+      },
+    ];
+  })();
+  const isGeneratedSubPageTab = activeTab.includes(":");
+  const accordionItemsToRender = (() => {
+    if (!currentTab?.accordionItems) {
+      return [];
+    }
+
+    if (isGeneratedSubPageTab) {
+      const pagePermissionItem =
+        crmPagePermissionsTab?.accordionItems?.find((item) => item.id === "crm-section") ||
+        crmPagePermissionsTab?.accordionItems?.[0];
+      const contentPermissionItem =
+        crmSubPagePermissionsTab?.accordionItems?.find((item) => item.id === "dashboard-permissions") ||
+        currentTab.accordionItems.find((item) => item.id === "dashboard-permissions") ||
+        currentTab.accordionItems[0];
+
+      const generatedItems: AccordionItem[] = [];
+
+      if (pagePermissionItem) {
+        generatedItems.push({
+          ...pagePermissionItem,
+          id: "page-permission",
+          title: "Page Permission",
+        });
+      }
+
+      if (contentPermissionItem) {
+        generatedItems.push({
+          ...contentPermissionItem,
+          id: "content-permission",
+          title: "Content Permission",
+        });
+      }
+
+      return generatedItems;
+    }
+
+    return currentTab.accordionItems;
+  })();
 
   return (
     <div className="flex bg-gray-50 min-h-screen">
@@ -684,56 +855,61 @@ export default function PermissionPage() {
               {/* Vertical Tabs - Left Sidebar */}
               <div className="w-64 border-r border-gray-200 p-6">
                 <nav className="space-y-1">
-                  {tabsData.map((tab) => (
-                    <div key={tab.id}>
-                      {/* Main Tab Button */}
+                  {sidebarMenuSections.map((section) => (
+                    <div key={section.id}>
                       <button
-                        onClick={() => {
-                          if (tab.subTabs) {
-                            toggleDropdown(tab.id);
-                          } else {
-                            setActiveTab(tab.id);
-                          }
-                        }}
+                        onClick={() => toggleDropdown(section.id)}
                         className={`w-full flex items-center justify-between text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                          tab.subTabs && openDropdowns[tab.id]
+                          openDropdowns[section.id]
                             ? "bg-gray-100 text-gray-900"
-                            : activeTab === tab.id
-                            ? "bg-primary-50 text-primary-600"
                             : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        <span>{tab.label}</span>
-                        {tab.subTabs && (
-                          <svg
-                            className={`w-4 h-4 transition-transform ${
-                              openDropdowns[tab.id] ? "rotate-180" : ""
-                            }`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        )}
+                        <span>{section.label}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${openDropdowns[section.id] ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       </button>
 
-                      {/* Sub-tabs (Dropdown Content) */}
-                      {tab.subTabs && openDropdowns[tab.id] && (
+                      {openDropdowns[section.id] && (
                         <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
-                          {tab.subTabs.map((subTab) => (
-                            <button
-                              key={subTab.id}
-                              onClick={() => setActiveTab(subTab.id)}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                activeTab === subTab.id
-                                  ? "bg-primary-50 text-primary-600 font-medium"
-                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                              }`}
-                            >
-                              {subTab.label}
-                            </button>
-                          ))}
+                          <button
+                            onClick={() => setActiveTab(`${section.id}-page-permissions`)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                              activeTab === `${section.id}-page-permissions`
+                                ? "bg-primary-50 text-primary-600 font-medium"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            }`}
+                          >
+                            Page Permissions
+                          </button>
+
+                          
+
+                          {section.items.map((item) => {
+                            const generatedId = standaloneTabs.some((tab) => tab.id === item.id)
+                              ? item.id
+                              : `${section.id}:${item.id}`;
+
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => setActiveTab(generatedId)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                  activeTab === generatedId
+                                    ? "bg-primary-50 text-primary-600 font-medium"
+                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -747,7 +923,7 @@ export default function PermissionPage() {
                   <div>
                     {/* Header for current tab */}
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-semibold text-gray-900">{currentTab.label}</h2>
+                      <h2 className="text-xl font-semibold text-gray-900">{currentTabLabel}</h2>
                       {currentTab.id !== "crm-dashboard" && (
                         <button
                           
@@ -884,7 +1060,7 @@ export default function PermissionPage() {
                     {/* Default Accordion Items for non-CRM tabs */}
                     {activeTab !== "sidebar-crm" && (
                       <div className="space-y-4">
-                        {currentTab.accordionItems?.map((item) => (
+                        {accordionItemsToRender.map((item) => (
                           <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
                             {/* Accordion Header */}
                             <button
@@ -1013,7 +1189,7 @@ export default function PermissionPage() {
       {/* Edit Permissions Modal */}
       {isEditPermissionsModalOpen && selectedUserForEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Edit Permissions - {selectedUserForEdit.name}
             </h3>
@@ -1040,176 +1216,33 @@ export default function PermissionPage() {
 
                 {/* Table Body */}
                 <div className="divide-y divide-gray-200">
-                  {/* Dashboard Row */}
-                  <div className="grid grid-cols-5 gap-2 px-4 py-3 hover:bg-gray-50">
-                    <div className="text-sm font-medium text-gray-900 flex items-center">Dashboard</div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.dashboard.create}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            dashboard: { ...prev.dashboard, create: !prev.dashboard.create }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.dashboard.read}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            dashboard: { ...prev.dashboard, read: !prev.dashboard.read }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.dashboard.update}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            dashboard: { ...prev.dashboard, update: !prev.dashboard.update }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.dashboard.delete}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            dashboard: { ...prev.dashboard, delete: !prev.dashboard.delete }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                  </div>
+                  {contentPermissionItems.map((item) => {
+                    const permission = tempContentPermissions[item.id] || emptyPermissionFlags();
 
-                  {/* Report Row */}
-                  <div className="grid grid-cols-5 gap-2 px-4 py-3 hover:bg-gray-50">
-                    <div className="text-sm font-medium text-gray-900 flex items-center">Report</div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.report.create}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            report: { ...prev.report, create: !prev.report.create }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.report.read}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            report: { ...prev.report, read: !prev.report.read }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.report.update}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            report: { ...prev.report, update: !prev.report.update }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.report.delete}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            report: { ...prev.report, delete: !prev.report.delete }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Application Row */}
-                  <div className="grid grid-cols-5 gap-2 px-4 py-3 hover:bg-gray-50">
-                    <div className="text-sm font-medium text-gray-900 flex items-center">Application</div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.application.create}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            application: { ...prev.application, create: !prev.application.create }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.application.read}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            application: { ...prev.application, read: !prev.application.read }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.application.update}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            application: { ...prev.application, update: !prev.application.update }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <input
-                        type="checkbox"
-                        checked={tempContentPermissions.application.delete}
-                        onChange={() => {
-                          setTempContentPermissions(prev => ({
-                            ...prev,
-                            application: { ...prev.application, delete: !prev.application.delete }
-                          }));
-                        }}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                    </div>
-                  </div>
+                    return (
+                      <div key={item.id} className="grid grid-cols-5 gap-2 px-4 py-3 hover:bg-gray-50">
+                        <div className="text-sm font-medium text-gray-900 flex items-center">{item.label}</div>
+                        {(["create", "read", "update", "delete"] as const).map((permissionKey) => (
+                          <div key={permissionKey} className="flex justify-center items-center">
+                            <input
+                              type="checkbox"
+                              checked={permission[permissionKey]}
+                              onChange={() => {
+                                setTempContentPermissions((prev) => ({
+                                  ...prev,
+                                  [item.id]: {
+                                    ...(prev[item.id] || emptyPermissionFlags()),
+                                    [permissionKey]: !(prev[item.id]?.[permissionKey] || false),
+                                  },
+                                }));
+                              }}
+                              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -9,6 +9,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    if (isAuthenticated) {
+      router.push("/monitoring");
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +28,7 @@ export default function LoginPage() {
         // Store authentication state in localStorage
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("username", username);
-        router.push("/dashboard");
+        router.push("/monitoring");
       } else {
         setError("Invalid username or password");
       }
@@ -37,7 +44,7 @@ export default function LoginPage() {
           {/* Logo/Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Trial Project KATALIS
+              KATALIS
             </h1>
             <p className="text-gray-600">Sign in to your account</p>
           </div>
@@ -113,17 +120,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials Info */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-800 font-medium mb-1">Demo Credentials:</p>
-            <p className="text-xs text-blue-700">Username: <span className="font-mono font-semibold">Admin</span></p>
-            <p className="text-xs text-blue-700">Password: <span className="font-mono font-semibold">Admin123</span></p>
-          </div>
         </div>
 
         {/* Footer */}
         <p className="text-center text-gray-600 text-sm mt-6">
-          &copy; 2026 ProjectKATALIS. All rights reserved.
+          &copy; 2026 KATALIS. All rights reserved.
         </p>
       </div>
     </div>

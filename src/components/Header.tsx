@@ -46,8 +46,8 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b px-6 py-4">
-      <div className="flex items-center justify-between">
+    <header className="bg-white border-b px-6 h-[88px]">
+      <div className="h-full flex items-center justify-between">
         {/* Breadcrumb Navigation */}
         <div className="flex-1">
           <div className="flex items-center text-gray-600">

@@ -7,7 +7,13 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login page as the entry point
+    // Route to monitoring after login; otherwise send to login
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    if (isAuthenticated) {
+      router.push("/monitoring");
+      return;
+    }
+
     router.push("/login");
   }, [router]);
 
