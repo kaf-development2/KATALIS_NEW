@@ -1,0 +1,28 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Build Docker image
+      run: docker build -t tailadmin-dashboard .
+      
+    - name: Test Docker image
+      run: |
+        docker run -d -p 4000:4000 --name test-container tailadmin-dashboard
+        sleep 10
+        curl -f http://localhost:4000 || exit 1
+        docker stop test-container

@@ -19,6 +19,26 @@ A modern, responsive admin dashboard built with Next.js, TypeScript, and Tailwin
 
 - Node.js 18+ installed
 - npm, yarn, pnpm, or bun
+- Docker Desktop (optional, for containerized deployment)
+
+### Option 1: Docker (Recommended for Production)
+
+**Quick Start with Docker:**
+
+```bash
+# Clone repository
+git clone https://github.com/kaf-development2/KATALIS_NEW.git
+cd KATALIS_NEW
+
+# Run with Docker Compose
+docker-compose up --build
+```
+
+Application will run at: **http://localhost:4000**
+
+For detailed Docker instructions, see [DOCKER_README.md](./DOCKER_README.md)
+
+### Option 2: Local Development
 
 ### Installation
 
